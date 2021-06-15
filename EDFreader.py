@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import re
 import pandas as pd
 from scipy.signal import butter, filtfilt
 import matplotlib.pyplot as plt
@@ -49,33 +50,134 @@ class EDFreader(object):
         The voltage unit of each channel is microvolts.
     """
 
-    def __init__(self, filePath):
+    def __init__(self, filePath, print_log = True):
+
+        '''
+        The raw data files are orgnized as the form followed:
+        -------------------------------------------------------------------------------------
+        |>root<|  |>>>>>>> data_path <<<<<<<<|  |> seg_path <|   |>>>>>>>> metadata <<<<<<<<|
+        > data  > Channel-Name-Any-Expert_num   >Name_clip_num  > Code+Name.atn (Label information)
+                                                                > Code+Name.din
+                                                                > Code+Name.edf (Raw data)
+                                                                > Code+Name.pit (Some information of patient)
+        -------------------------------------------------------------------------------------
+        '''
+        # Whether print the log information?
+        self.print_log = print_log
+
+        # Judge whether the 'filePath' is an absolute path
         if os.path.isabs(filePath):
             self.absPath = filePath
         else:
             self.absPath = os.getcwd() + "\\" + filePath
-        self.dirname, self.filename = os.path.split(self.absPath)
-        self.raw = mne.io.read_raw_edf(self.absPath, preload=True)
-        self.ch_names, self.trace_names = self._get_channels()
-        self.annotations = self._get_atn()
-        self.ElectrodeData = self._get_raw_data()
+
+        # Extract file name information
+        self.dir, self.metadata_path = os.path.split(self.absPath)
+        self.dir, self.seg_path = os.path.split(self.dir)
+        self.dir, self.data_path = os.path.split(self.dir)
         
-        print("load " + self.filename + " finished.")
+        # Extract spike channel (in data_path)
+        self.spike_channel = self.data_path[:2]
+
+        # Load raw data from the metadata_path
+        # Get Av traced data (EEG, ECG and EMG)
+        self.raw = mne.io.read_raw_edf(self.absPath, preload=True)
+        self.ElectrodeData = self._get_raw_data()
+        self.data = self._data_sort()
+
+        # Get channel name and trace name (pre defined)
+        self.ch_names, self.trace_names = self._get_channels()
+
+        # Get annotations from the .atn file (named  same as metadata_file)
+        self.annotations = self._get_atn()
+        self.s_pairs, self.spikes = self._confirm_atn()
+
+        self.label = self._get_label()
+        
+        if self.print_log:
+            print("load " + self.metadata_path + " finished.")
 
     def _get_raw_data(self):
         data = self.raw.get_data()*1000000
-        print("Data shape: ", data.shape)
-#         data = pd.DataFrame(data.T, columns=self.ch_names)
+        if self.print_log:
+            print("Raw data shape: ", data.shape)
         return data
 
-    def _get_atn(self):
-        atn_array = self.raw.find_edf_events()
+    def _get_atn(self, expert_num=3):
 
-        atn = list(self.raw.annotations.description)
-        atn_pair = [(int(float(atn[i])*1000), atn[i+1]) for i, val in enumerate(atn) if atn[i][0]=='+' and atn[i+1][0]!='+' and i<len(atn)-1]
-        atn_DF = pd.DataFrame(atn_pair, columns=['ind', 'atn'])
-        annotations = atn_DF.set_index(['ind'])
-        return annotations
+        atn_path = self.absPath[:-3] + 'atn'
+
+        # for i in range(expert_num):
+        #     sss = str(i) + '\\'
+        #     atn_path = atn_path_i.replace('0\\', sss)
+
+        f = open(atn_path, mode='r', encoding='utf-8')
+        strs = f.readline()
+        
+        pattern = re.compile('\{.+?\}')
+        str_list = pattern.findall(strs)
+
+        time2text = {}
+        for s in str_list:
+            flag = re.search(r'"Event":"([A-Za-z|-]+?)"', s)
+            if flag == None:
+                continue
+            else:
+                text = flag.groups()[0]
+                time = int(float(re.search(r'"Onset":(-?\d+\.\d+)?', s).groups()[0])*1000)
+            time2text[time] = text
+        
+        atn_DF = pd.DataFrame([time2text.values()], columns=time2text.keys()).T
+        atn_DF.columns = ['atn']
+
+        return atn_DF
+    
+    def _confirm_atn(self):
+
+        atn = self.annotations
+        start_list = atn[atn.atn=="S-start"].index.tolist()
+        end_list = atn[atn.atn=="S-end"].index.tolist()
+        spike_list = atn[atn.atn=="Spike"].index.tolist()
+        
+        
+        if len(end_list) != len(start_list):
+            for i, start in enumerate(start_list):
+                while i<len(end_list) and end_list[i] < start :
+                    atn = atn.drop(index=end_list[i])
+                    end_list.pop(i)
+                if i>=len(end_list):
+                    break
+            atn = atn.drop(index=start_list[i:])
+            start_list = start_list[:i]
+        
+        if all(np.array(end_list)-np.array(start_list)>0):
+            self.annotations = atn
+            return len(start_list), len(spike_list)
+        else:
+            assert(len(start_list) == len(end_list))
+    
+    def _get_label(self):
+        channel_ind = self.trace_names.index(self.spike_channel+'-Av')
+        data = self.data[channel_ind, :]
+        on_points = self.annotations[self.annotations.atn=="S-start"].index.tolist()
+        off_points = self.annotations[self.annotations.atn=="S-end"].index.tolist()
+        s_points = self.annotations[self.annotations.atn=="Spike"].index.tolist()
+
+        label = np.zeros(data.shape)
+        for on_point, off_point in zip(on_points, off_points):
+            label[on_point:off_point] = 1
+        
+        d_data = data[1:] - data[:-1]
+        
+        peak_inds = np.where(np.int8(d_data[:-1]<0) * np.int8(d_data[1:]>0))[0]+1
+        for s_point in s_points:
+            if label[s_point]==0:
+                on_ind = np.sum(peak_inds < s_point)-1
+                on_point = peak_inds[on_ind]
+                off_point = peak_inds[on_ind+1]
+                label[on_point:off_point] = 1
+
+        return label
 
     def _get_channels(self):
         ch_names = self.raw.ch_names
@@ -105,26 +207,16 @@ class EDFreader(object):
         ecg_data = self._band_pass_filter(0.53, 50, ecg_data, 4)
         return ecg_data
 
-    # def _data_sort(self, data):
+    def _data_sort(self):
         
-    #     columns = ["Fp1","Fp2","F3","F4","C3","C4",
-    #                 "P3","P4","O1","O2","F7","F8",
-    #                 "T3","T4","T5","T6","Fz","Cz",
-    #                 "Pz"]
+        data = self.ElectrodeData
 
-    #     eeg_signal = data[0:19, :]
-    #     ref_signal = data[22:24, :]
+        eeg_data = self._get_EEG_data(data)
+        emg_data = self._get_EMG_data(data)*0.8
+        ecg_data = self._get_ECG_data(data)*0.05
+        sorted_data = np.vstack([eeg_data, emg_data, ecg_data])
 
-    #     # EEG data filter
-    #     eeg_filted = self._lowpass(HigHz=200, data=eeg_signal)
-    #     ref_filted = self._lowpass(HigHz=200, data=ref_signal)
-
-    #     # eeg_filted_Av = eeg_filted
-    #     eeg_filted_Av = eeg_filted - np.mean(ref_filted, axis=0, keepdims=True)
-
-    #     filted_data = -eeg_filted_Av
-    #     sorted_data = pd.DataFrame(filted_data.T, columns=columns)
-    #     return sorted_data[self.channel]
+        return sorted_data
 
     def _band_pass_filter(self, LowHz, HigHz, data, order):
         N, L = data.shape
@@ -142,36 +234,47 @@ class EDFreader(object):
         filted_data = filtfilt(b, a, data)
         return filted_data
 
-    # def save_txt(self, path):
-    #     if len(self.OriginalData)!=30014:
-    #         print('length: ', len(self.OriginalData))
-    #     self.OriginalData.to_csv('./'+path+'/'+self.filename+'.txt', sep='\t', index=False)
+    def save_as_txt(self):
+        print('********************************')
+        channel_ind = self.trace_names.index(self.spike_channel+'-Av')
+        SpikeChannelData = self.data[channel_ind, :]
+
+        save_path, _ = os.path.split(self.absPath)
+
+        SpikeChannelData = pd.DataFrame({self.spike_channel: SpikeChannelData})
+        SpikeChannelData.to_csv(save_path + '\\' + 'data.txt', sep='\t', index=False)
+        self.annotations.to_csv(save_path + '\\' + 'atn.txt', sep='\t', index=True)
+
+        print('File <{0}> has been saved in path <{1}>;'.format(self.metadata_path, save_path))
+        print('Signal length: ', SpikeChannelData.shape[0])
+        print('S pairs : [{:d}]; Spikes : [{:d}]'.format(self.s_pairs, self.spikes))
+        return
 
 
     def plot_data(self, ind=None, Sens=2):
-        
+
+        channel_ind = self.trace_names.index(self.spike_channel+'-Av')
+
         if ind==None:
             ind = [0, 5000]
-        data = self.ElectrodeData[:, ind[0]:ind[1]]
-
-        eeg_data = self._get_EEG_data(data)
-        emg_data = self._get_EMG_data(data)*0.8
-        ecg_data = self._get_ECG_data(data)*0.05
-        data = np.vstack([eeg_data, emg_data, ecg_data])
-        N, L = data.shape
+        
+        data = self.data[:, ind[0]:ind[1]]
+        label = self.label[ind[0]:ind[1]]
+        data = data[channel_ind, :].reshape(1, -1)
+        N, _ = data.shape
 
         atn_in_ind = [idx for idx in self.annotations.index if idx<ind[1] and idx>=ind[0]]
 
-        fig = plt.figure(figsize=[15,15])
+        fig = plt.figure(figsize=[15,5])
         for i in range(N):
             ax = fig.add_subplot(N, 1, i+1)
             ax.plot(np.arange(ind[0], ind[1]), data[i])
+            ax.scatter(np.arange(ind[0], ind[1]), label*data[i])
             ax.vlines(atn_in_ind, -100*Sens, 100*Sens, color='r')
-            ax.set_ylim([-100*Sens,100*Sens])
             ax.set_facecolor('none')
             
             ax.set_yticks([0])
-            ax.set_yticklabels([self.trace_names[i]], rotation=0)
+            ax.set_yticklabels([self.trace_names[channel_ind]], rotation=0)
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
             if i < N-1:
@@ -180,22 +283,34 @@ class EDFreader(object):
             else:
                 ax.set_xticks(list(np.arange(ind[0], ind[1], 1000)))
                 for idx in atn_in_ind:
-                    ax.text(idx+30, -100*Sens+50, self.annotations.loc[idx, 'atn'], fontsize=16, color='red')
+                    ax.text(idx+30, -100*Sens+50, self.annotations.loc[idx, 'atn'], fontsize=10, color='red')
         plt.subplots_adjust(hspace=-0.75)
         plt.show()
         return None
 
 if __name__ == "__main__":
 
-    # filelist = os.listdir('Pre5data')
-    # for file in filelist:
-    #     print("***********************************")
-    #     filePath = 'Pre5data\\' + file
-    #     edf = EDFreader(filePath)
-    #     print(edf.raw.annotations.description)
-    
+    file_list = []
+    # path = 'Data-1'
+    # i = 22
 
-    edf = EDFreader('Pre5data\\T4-syn-2-1.edf')
-    print(edf.raw.annotations.description)
-    edf.plot_data(ind=[5000,10000])
+    # path = 'Data-2'
+    # i = 22
+
+    path = 'Data-0'
+    i = 22
+
+    for root, dirs, files in os.walk(path):
+        for file in files:
+            if file[-3:] == 'edf':
+                file_list.append(os.path.join(root, file))
+                # print(os.path.join(root,file))
+
+    # for file in file_list:
+    #     edf = EDFreader(filePath=file, print_log=False)
+    #     edf.save_as_txt()
+    # pass
+
+    edf = EDFreader(filePath=file_list[i], print_log=False)
+    edf.plot_data()
     pass
