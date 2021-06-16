@@ -87,12 +87,12 @@ class EDFreader(object):
 
         # Get channel name and trace name (pre defined)
         self.ch_names, self.trace_names = self._get_channels()
-
+        self.channel_ind = self.trace_names.index(self.spike_channel+'-Av')
         # Get annotations from the .atn file (named  same as metadata_file)
-        self.annotations = self._get_atn()
-        self.s_pairs, self.spikes = self._confirm_atn()
+        # self.annotations = self._get_atn()
+        # self.s_pairs, self.spikes = self._confirm_atn()
 
-        self.label = self._get_label()
+        # self.label = self._get_label()
         
         if self.print_log:
             print("load " + self.metadata_path + " finished.")
@@ -103,13 +103,7 @@ class EDFreader(object):
             print("Raw data shape: ", data.shape)
         return data
 
-    def _get_atn(self, expert_num=3):
-
-        atn_path = self.absPath[:-3] + 'atn'
-
-        # for i in range(expert_num):
-        #     sss = str(i) + '\\'
-        #     atn_path = atn_path_i.replace('0\\', sss)
+    def get_atn(self, atn_path):
 
         f = open(atn_path, mode='r', encoding='utf-8')
         strs = f.readline()
@@ -132,36 +126,41 @@ class EDFreader(object):
 
         return atn_DF
     
-    def _confirm_atn(self):
+    def confirm_atn(self, atn):
+        
+        start_flag = True
+        l = len(atn)
+        for i, ind, atnn in zip(range(l), atn.index, atn.atn):
+            if start_flag:
+                if atnn == "S-end":
+                    atn.drop(index=ind, inplace=True)
+                elif atnn == "S-start":
+                    start_flag = False
+            else:
+                if atnn == "S-end":
+                    start_flag = True
+                elif atnn == "S-start":
+                    atn.drop(index=ind, inplace=True)
 
-        atn = self.annotations
         start_list = atn[atn.atn=="S-start"].index.tolist()
         end_list = atn[atn.atn=="S-end"].index.tolist()
         spike_list = atn[atn.atn=="Spike"].index.tolist()
-        
-        
-        if len(end_list) != len(start_list):
-            for i, start in enumerate(start_list):
-                while i<len(end_list) and end_list[i] < start :
-                    atn = atn.drop(index=end_list[i])
-                    end_list.pop(i)
-                if i>=len(end_list):
-                    break
-            atn = atn.drop(index=start_list[i:])
-            start_list = start_list[:i]
-        
+
+        if not start_flag:
+            atn.drop(index=start_list[-1], inplace=True)
+            start_list.pop()
+
         if all(np.array(end_list)-np.array(start_list)>0):
-            self.annotations = atn
-            return len(start_list), len(spike_list)
+            return atn, len(start_list), len(spike_list)
         else:
             assert(len(start_list) == len(end_list))
     
-    def _get_label(self):
-        channel_ind = self.trace_names.index(self.spike_channel+'-Av')
-        data = self.data[channel_ind, :]
-        on_points = self.annotations[self.annotations.atn=="S-start"].index.tolist()
-        off_points = self.annotations[self.annotations.atn=="S-end"].index.tolist()
-        s_points = self.annotations[self.annotations.atn=="Spike"].index.tolist()
+    def get_label(self, atn):
+        
+        data = self.data[self.channel_ind, :]
+        on_points = atn[atn.atn=="S-start"].index.tolist()
+        off_points = atn[atn.atn=="S-end"].index.tolist()
+        s_points = atn[atn.atn=="Spike"].index.tolist()
 
         label = np.zeros(data.shape)
         for on_point, off_point in zip(on_points, off_points):
@@ -236,8 +235,7 @@ class EDFreader(object):
 
     def save_as_txt(self):
         print('********************************')
-        channel_ind = self.trace_names.index(self.spike_channel+'-Av')
-        SpikeChannelData = self.data[channel_ind, :]
+        SpikeChannelData = self.data[self.channel_ind, :]
 
         save_path, _ = os.path.split(self.absPath)
 
@@ -253,14 +251,12 @@ class EDFreader(object):
 
     def plot_data(self, ind=None, Sens=2):
 
-        channel_ind = self.trace_names.index(self.spike_channel+'-Av')
-
         if ind==None:
             ind = [0, 5000]
         
         data = self.data[:, ind[0]:ind[1]]
         label = self.label[ind[0]:ind[1]]
-        data = data[channel_ind, :].reshape(1, -1)
+        data = data[self.channel_ind, :].reshape(1, -1)
         N, _ = data.shape
 
         atn_in_ind = [idx for idx in self.annotations.index if idx<ind[1] and idx>=ind[0]]
@@ -274,7 +270,7 @@ class EDFreader(object):
             ax.set_facecolor('none')
             
             ax.set_yticks([0])
-            ax.set_yticklabels([self.trace_names[channel_ind]], rotation=0)
+            ax.set_yticklabels([self.trace_names[self.channel_ind]], rotation=0)
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
             if i < N-1:
