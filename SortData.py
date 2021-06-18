@@ -44,7 +44,7 @@ class SortData(EDFreader):
             atn_DF = self.get_atn(path)
             atn_DF, s_pairs, spikes = self.confirm_atn(atn_DF)
 
-            atn_DF.to_csv('{}\\{}.txt'.format(atn_path, self.seg_path), sep='\t', index=True)
+            atn_DF.to_csv('{}\\{}-{}.txt'.format(atn_path, self.data_path[3:6], self.seg_path[-5:]), sep='\t', index=True)
             label = self.get_label(atn_DF)
             SpikeChannelData['Atn-{}'.format(i)] = label
             swi = np.mean(label)
@@ -54,7 +54,7 @@ class SortData(EDFreader):
         if not os.path.exists(data_path):
                 os.makedirs(data_path)
 
-        SpikeChannelData.to_csv('{}\\{}.txt'.format(data_path, self.seg_path), sep='\t', index=True)
+        SpikeChannelData.to_csv('{}\\{}-{}.txt'.format(data_path, self.data_path[3:6], self.seg_path[-5:]), sep='\t', index=True)
         return None
 
 
