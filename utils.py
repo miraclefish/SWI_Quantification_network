@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def plot_data(dataPath, time, length, Sens=0.8):
+def plot_data(dataPath, time, length, pred=None, Sens=1.5):
 
     data_with_label = pd.read_csv(dataPath, sep='\t', index_col=0)
 
@@ -18,6 +18,10 @@ def plot_data(dataPath, time, length, Sens=0.8):
 
     Atn_path_list = parse_dir(dataPath)
 
+    k = 0
+    if pred is not None:
+        _, k = pred.shape
+
     fig = plt.figure(figsize=[15,10])
 
 
@@ -30,9 +34,15 @@ def plot_data(dataPath, time, length, Sens=0.8):
         if i > 0:
             ylabel = columns[0]+'-'+str(i-1)
             spike_inds, s_pairs = get_spike_point(Atn_path=Atn_path_list[i-1], start=start, end=end)
+            s_pairs = label2Spair(label=data_with_label[columns[i]].values[start:end], start=start)
             ax.vlines(spike_inds, -100*Sens, 100*Sens, color='r')
             for s_pair in s_pairs:
                 ax.plot(np.arange(s_pair[0], s_pair[1]), data[s_pair[0]:s_pair[1]], c='r')
+            if k>=i:
+                s_pair_preds = label2Spair(label=pred[start:end,i-1], start=start)
+                for s_pair_pred in s_pair_preds:
+                    ax.plot(np.arange(s_pair_pred[0], s_pair_pred[1]), data[s_pair_pred[0]:s_pair_pred[1]]-15, c='g')
+
 
         ax.set_facecolor('none')
         ax.set_yticks([0])
@@ -51,6 +61,20 @@ def plot_data(dataPath, time, length, Sens=0.8):
     plt.subplots_adjust(hspace=0.05)
     plt.show()
     return None
+
+def label2Spair(label, start):
+
+    d_label = label[1:] - label[:-1]
+    inds = list(np.where(d_label != 0)[0]+1)
+
+    if label[0] == 1:
+        inds.insert(0, 0)
+    elif label[-1] == 1:
+        inds.append(len(label))
+
+    s_pair = np.array(inds)+start
+    s_pair = s_pair.reshape(-1,2)
+    return s_pair
 
 def get_spike_point(Atn_path, start, end):
     Atn = pd.read_csv(Atn_path, sep='\t', index_col=0)
@@ -104,7 +128,7 @@ def parse_dir(dataPath):
 if __name__ == "__main__":
 
     dataPath = "Pre5data\Data\CCW-clip1.txt"
-    time = 58
+    time = 0
     length = 5
     plot_data(dataPath, time, length)
 
