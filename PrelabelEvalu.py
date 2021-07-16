@@ -67,7 +67,26 @@ def evalu(label, pred, iou_th):
 
 if __name__ == "__main__":
 
-    dataPath = "Pre5data\Data\WJY-clip4.txt"
+    filelist = os.listdir('Pre5data/Data')
+    S_num = []
+    swi = []
+    for file in filelist:
+
+        dataPath = os.path.join('Pre5data/Data', file)
+        SwiQ = SWIquantify(filepath=dataPath, Spike_width=81, print_log=True)
+
+        label = SwiQ.label[:,0]
+        s_pair = label2Spair(label)
+
+        S_num.append(s_pair.shape[0])
+        swi.append(np.mean(label)*100)
+        pass
+    
+    tabel = {'Name':filelist, 'S_num':S_num, 'swi':swi}
+    tabel = pd.DataFrame.from_dict(tabel)
+    tabel.to_csv('Dataset1info.csv', index=0)
+
+    dataPath = "Pre5data\Data\CCW-clip1.txt"
     SwiQ = SWIquantify(filepath=dataPath, Spike_width=81, print_log=True)
     th, min_err = SwiQ.fix_threshold()
     swi = SwiQ.get_optimal_result(th)
@@ -118,7 +137,7 @@ if __name__ == "__main__":
     
     tabel = {'Name':filelist, 'Sens':Sens, 'Prec':Prec, 'Fp_min':Fp_min, 
             'S1': Sens1, 'P1':Prec1, 'Fp1':Fp_min1, 
-            'S2': Sens1, 'P2':Prec1, 'Fp2':Fp_min1}
+            'S2': Sens2, 'P2':Prec2, 'Fp2':Fp_min2}
     tabel = pd.DataFrame.from_dict(tabel)
     tabel.to_csv('PreLabel.csv', index=0)
     

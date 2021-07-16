@@ -69,7 +69,7 @@ def label2Spair(label, start):
 
     if label[0] == 1:
         inds.insert(0, 0)
-    elif label[-1] == 1:
+    if label[-1] == 1:
         inds.append(len(label))
 
     s_pair = np.array(inds)+start
@@ -127,9 +127,9 @@ def parse_dir(dataPath):
 
 if __name__ == "__main__":
 
-    dataPath = "Pre5data\Data\CCW-clip1.txt"
-    time = 0
-    length = 5
-    plot_data(dataPath, time, length)
+    dataPath = "Seg5data\\Data\\1-刘晓逸-1.txt"
+    time = 10
+    length = 10
+    plot_data(dataPath=dataPath, time=time, length=length, Sens=2)
 
     pass

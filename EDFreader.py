@@ -76,8 +76,6 @@ class EDFreader(object):
         self.dir, self.seg_path = os.path.split(self.dir)
         self.dir, self.data_path = os.path.split(self.dir)
         
-        # Extract spike channel (in data_path)
-        self.spike_channel = self.data_path[:2]
 
         # Load raw data from the metadata_path
         # Get Av traced data (EEG, ECG and EMG)
@@ -87,6 +85,10 @@ class EDFreader(object):
 
         # Get channel name and trace name (pre defined)
         self.ch_names, self.trace_names = self._get_channels()
+
+        # Extract spike channel (in data_path)
+        self.spike_channel = self.get_spike_channel()
+
         self.channel_ind = self.trace_names.index(self.spike_channel+'-Av')
         # Get annotations from the .atn file (named  same as metadata_file)
         # self.annotations = self._get_atn()
@@ -102,6 +104,19 @@ class EDFreader(object):
         if self.print_log:
             print("Raw data shape: ", data.shape)
         return data
+    
+    def get_spike_channel(self):
+        path = self.data_path
+        words = path.split('-')
+        for word in words:
+            if word in self.ch_names:
+                channel = word
+                break
+            else:
+                channel = None
+        return channel
+
+        
 
     def get_atn(self, atn_path):
 
@@ -130,20 +145,34 @@ class EDFreader(object):
         
         start_flag = True
         l = len(atn)
+
+        end_descrip = ["S-end", "spike-end", "Spike-end"]
+        start_descrip = ["S-start", "spike-start", "Spike-start"]
+
+        end_name = None
+        start_name = None
         for i, ind, atnn in zip(range(l), atn.index, atn.atn):
             if start_flag:
-                if atnn == "S-end":
+                if atnn in end_descrip:
                     atn.drop(index=ind, inplace=True)
-                elif atnn == "S-start":
+                    if end_name == None:
+                        end_name = atnn
+                elif atnn in start_descrip:
                     start_flag = False
+                    if start_name == None:
+                        start_name = atnn
             else:
-                if atnn == "S-end":
+                if atnn in end_descrip:
                     start_flag = True
-                elif atnn == "S-start":
+                    if end_name == None:
+                        end_name = atnn
+                elif atnn in start_descrip:
                     atn.drop(index=ind, inplace=True)
+                    if start_name == None:
+                        start_name = atnn
 
-        start_list = atn[atn.atn=="S-start"].index.tolist()
-        end_list = atn[atn.atn=="S-end"].index.tolist()
+        start_list = atn[atn.atn==start_name].index.tolist()
+        end_list = atn[atn.atn==end_name].index.tolist()
         spike_list = atn[atn.atn=="Spike"].index.tolist()
 
         if not start_flag:
@@ -151,15 +180,15 @@ class EDFreader(object):
             start_list.pop()
 
         if all(np.array(end_list)-np.array(start_list)>0):
-            return atn, len(start_list), len(spike_list)
+            return atn, len(start_list), len(spike_list), start_name, end_name
         else:
             assert(len(start_list) == len(end_list))
     
-    def get_label(self, atn):
+    def get_label(self, atn, start_name, end_name):
         
         data = self.data[self.channel_ind, :]
-        on_points = atn[atn.atn=="S-start"].index.tolist()
-        off_points = atn[atn.atn=="S-end"].index.tolist()
+        on_points = atn[atn.atn==start_name].index.tolist()
+        off_points = atn[atn.atn==end_name].index.tolist()
         s_points = atn[atn.atn=="Spike"].index.tolist()
 
         label = np.zeros(data.shape)
