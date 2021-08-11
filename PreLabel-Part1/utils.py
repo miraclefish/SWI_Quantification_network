@@ -3,8 +3,15 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
+import matplotlib as mpl
 
-def plot_data(dataPath, time, length, pred=None, Sens=1.5):
+mpl.rcParams['font.sans-serif'] = ["SimHei"]
+mpl.rcParams["axes.unicode_minus"] = False
+
+
+def plot_data(dataPath, time, length, pred=None, Sens=1.5, save_fig=False):
+
+    _, filename = os.path.split(dataPath)
 
     data_with_label = pd.read_csv(dataPath, sep='\t', index_col=0)
 
@@ -57,12 +64,30 @@ def plot_data(dataPath, time, length, pred=None, Sens=1.5):
             ax.set_xticks(list(np.arange(start, end, 1000)))
             for idx in spike_inds:
                 ax.text(idx+30, -100*Sens+50, 'Spike', fontsize=10, color='red')
-
+        
+    plt.suptitle('{} : {}s-{}s'.format(filename, time, time+length))
     plt.subplots_adjust(hspace=0.05)
-    plt.show()
+    if save_fig:
+        path = os.path.join('PlotDataset2', "{}-{}.png".format(filename, time))
+        plt.savefig(path, dpi=500, bbox_inches='tight')
+        plt.close(fig)
+    else:
+        plt.show()
     return None
 
-def label2Spair(label, start):
+def pair2label(s_pairs, L, th):
+
+    new_pairs = []
+    for s_pair in s_pairs:
+        if s_pair[1] - s_pair[0] >= th:
+            new_pairs.append(s_pair)
+
+    label = np.zeros(L)
+    for s_pair in new_pairs:
+        label[s_pair[0]:s_pair[1]] = 1
+    return label
+
+def label2Spair(label, start=0):
 
     d_label = label[1:] - label[:-1]
     inds = list(np.where(d_label != 0)[0]+1)
@@ -127,9 +152,20 @@ def parse_dir(dataPath):
 
 if __name__ == "__main__":
 
-    dataPath = "Seg5data\\Data\\1-刘晓逸-1.txt"
-    time = 10
+    filelist = os.listdir('Seg5data\\Data')
     length = 10
-    plot_data(dataPath=dataPath, time=time, length=length, Sens=2)
+
+    for file in filelist:
+        path = os.path.join('Seg5data\\Data', file)
+        for i in range(5):
+            time = i*10
+            plot_data(dataPath=path, time=time, length=length, Sens=4.5, save_fig=True)
+        pass
+
+
+    # dataPath = "Seg5data\\Data\\2-苏涵-1.txt"
+    # time = 10
+    # length = 10
+    # plot_data(dataPath=dataPath, time=time, length=length, Sens=5)
 
     pass

@@ -1,5 +1,3 @@
-from matplotlib.colors import cnames
-from scipy.signal.signaltools import filtfilt
 from SWIquantify import SWIquantify
 from utils import plot_data
 import numpy as np
@@ -55,7 +53,7 @@ def match_pairs(label, pred, iou_th):
 
 def evalu(label, pred, iou_th):
     num_T, num_P, num_TP, num_FP = match_pairs(label, pred, iou_th)
-    Sens = num_TP/num_T
+    Sens = num_TP/(num_T+10e-6)
     Prec = num_FP/num_P
     Fp_min = (num_P - num_FP)/(len(label)/1000/60)
 
@@ -67,34 +65,49 @@ def evalu(label, pred, iou_th):
 
 if __name__ == "__main__":
 
+
     filelist = os.listdir('Pre5data/Data')
     S_num = []
     swi = []
     for file in filelist:
-
         dataPath = os.path.join('Pre5data/Data', file)
-        SwiQ = SWIquantify(filepath=dataPath, Spike_width=81, print_log=True)
-
-        label = SwiQ.label[:,0]
-        s_pair = label2Spair(label)
-
-        S_num.append(s_pair.shape[0])
-        swi.append(np.mean(label)*100)
+        SwiQ = SWIquantify(filepath=dataPath, Spike_width=76, print_log=True)
+        th, min_err = SwiQ.fix_threshold()
+        swi = SwiQ.get_optimal_result(th)
+        label_pred = SwiQ.mask.reshape(-1,1)
+        L = len(SwiQ.data)
+        for i in range(round(L/10000)):
+            SwiQ.plot_demo(time=i*10, length=10, pred=label_pred, save_fig=True)
         pass
+
+    # filelist = os.listdir('Pre5data/Data')
+    # S_num = []
+    # swi = []
+    # for file in filelist:
+
+    #     dataPath = os.path.join('Pre5data/Data', file)
+    #     SwiQ = SWIquantify(filepath=dataPath, Spike_width=81, print_log=True)
+
+    #     label = SwiQ.label[:,0]
+    #     s_pair = label2Spair(label)
+
+    #     S_num.append(s_pair.shape[0])
+    #     swi.append(np.mean(label)*100)
+    #     pass
     
-    tabel = {'Name':filelist, 'S_num':S_num, 'swi':swi}
-    tabel = pd.DataFrame.from_dict(tabel)
-    tabel.to_csv('Dataset1info.csv', index=0)
+    # tabel = {'Name':filelist, 'S_num':S_num, 'swi':swi}
+    # tabel = pd.DataFrame.from_dict(tabel)
+    # tabel.to_csv('Dataset1info.csv', index=0)
 
-    dataPath = "Pre5data\Data\CCW-clip1.txt"
-    SwiQ = SWIquantify(filepath=dataPath, Spike_width=81, print_log=True)
-    th, min_err = SwiQ.fix_threshold()
-    swi = SwiQ.get_optimal_result(th)
+    # dataPath = "Pre5data\Data\CCW-clip3.txt"
+    # SwiQ = SWIquantify(filepath=dataPath, Spike_width=76, print_log=True)
+    # th, min_err = SwiQ.fix_threshold()
+    # swi = SwiQ.get_optimal_result(th)
 
-    label = SwiQ.label[:,0]
-    label_pred = SwiQ.mask.reshape(-1,1)
-    Sens, Prec, Fp_min = evalu(label, label_pred, 0.3)
-    plot_data(dataPath=dataPath, time=0, length=5, pred=label_pred)
+    # label = SwiQ.label[:,0]
+    # label_pred = SwiQ.mask.reshape(-1,1)
+    # Sens, Prec, Fp_min = evalu(label, label_pred, 0.3)
+    # plot_data(dataPath=dataPath, time=0, length=30, pred=label_pred, Sens=5.5)
 
     filelist = os.listdir('Pre5data/Data')
     Sens = []
@@ -111,7 +124,7 @@ if __name__ == "__main__":
     for file in filelist:
 
         dataPath = os.path.join('Pre5data/Data', file)
-        SwiQ = SWIquantify(filepath=dataPath, Spike_width=81, print_log=True)
+        SwiQ = SWIquantify(filepath=dataPath, Spike_width=76, print_log=True)
         th, min_err = SwiQ.fix_threshold()
         swi = SwiQ.get_optimal_result(th)
 
@@ -139,7 +152,7 @@ if __name__ == "__main__":
             'S1': Sens1, 'P1':Prec1, 'Fp1':Fp_min1, 
             'S2': Sens2, 'P2':Prec2, 'Fp2':Fp_min2}
     tabel = pd.DataFrame.from_dict(tabel)
-    tabel.to_csv('PreLabel.csv', index=0)
+    tabel.to_csv('PreLabel75_new.csv', index=0)
     
     pass
 

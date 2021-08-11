@@ -1,4 +1,3 @@
-from numpy.lib.npyio import save
 from EDFreader import EDFreader
 import os
 import pandas as pd
@@ -48,7 +47,7 @@ class SortData2(EDFreader):
             atn_DF = self.get_atn(path)
             atn_DF, s_pairs, spikes, start_name, end_name = self.confirm_atn(atn_DF)
 
-            atn_DF.to_csv('{}\\{}-{}-{}.txt'.format(atn_path, self.data_path[3], self.seg_path.split('-')[1], self.seg_path.split('-')[2]), sep='\t', index=True)
+            atn_DF.to_csv('{}\\{}-{}-{}.txt'.format(atn_path, self.data_path.split('-')[1], self.seg_path.split('-')[1], self.seg_path.split('-')[2]), sep='\t', index=True)
             label = self.get_label(atn_DF, start_name, end_name)
             SpikeChannelData['Atn-{}'.format(i)] = label
             swi = np.mean(label)*100
@@ -58,7 +57,7 @@ class SortData2(EDFreader):
         if not os.path.exists(data_path):
             os.makedirs(data_path)
 
-        SpikeChannelData.to_csv('{}\\{}-{}-{}.txt'.format(data_path, self.data_path[3], self.seg_path.split('-')[1], self.seg_path.split('-')[2]), sep='\t', index=True)
+        SpikeChannelData.to_csv('{}\\{}-{}-{}.txt'.format(data_path, self.data_path.split('-')[1], self.seg_path.split('-')[1], self.seg_path.split('-')[2]), sep='\t', index=True)
         return None
 
     def get_all_file_in_path(self, rt):
@@ -75,7 +74,7 @@ if __name__ == "__main__":
 
     file_list = []
 
-    path = 'Dataset2-0-病例1-5'
+    path = 'Dataset2-0-病例1-15'
 
     for root, dirs, files in os.walk(path):
         for file in files:
@@ -83,12 +82,12 @@ if __name__ == "__main__":
                 file_list.append(os.path.join(root, file))
                 # print(os.path.join(root,file))
 
-    # for i, file in enumerate(file_list):
-    #     sort3 = SortData2(filePath=file, id=i, expert_num=3, print_log=False)
-    #     sort3.save(save_path='Seg5data')
+    for i, file in enumerate(file_list):
+        sort3 = SortData2(filePath=file, id=i, expert_num=3, print_log=False)
+        sort3.save(save_path='Seg5data')
     
-    sort3 = SortData2(filePath=file_list[4], id=4, expert_num=3, print_log=False)
-    sort3.save(save_path='Seg5data')
+    # sort3 = SortData2(filePath=file_list[4], id=4, expert_num=3, print_log=False)
+    # sort3.save(save_path='Seg5data')
 
     pass
 

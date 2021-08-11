@@ -1,4 +1,3 @@
-from numpy.lib.npyio import save
 from EDFreader import EDFreader
 import os
 import pandas as pd
