@@ -7,6 +7,8 @@
 *.json
 *.csv
 *.png
+*.tar
+**/log/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
