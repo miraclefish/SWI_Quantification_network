@@ -32,6 +32,7 @@ writer = SummaryWriter('./log/runs0', flush_secs=1)
 net = SignalSegNet(Basicblock, [2,2,2,2,2])
 
 optimizer = optim.Adam(net.parameters(), lr=lr, weight_decay=0.01)
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.9)
 loss = nn.CrossEntropyLoss()
 
 net = net.to(device)
@@ -74,6 +75,11 @@ for epoch in range(s_epoch+1, n_epoch):
         print('epoch: %d, [iter: %d / all %d], loss : %f' \
               % (epoch, i, len(dataloader_train), Loss.cpu().data.numpy()))
     
+    scheduler.step()
+    
+    train_loss = loss_all/len(dataloader_train)
+    test_loss = test(net)
+    print('epoch: %d,  test_loss : %f' % (epoch, test_loss))
     # save_checkpoint_state(model_root, epoch, model=net, optimizer)
     checkpoint = {
             "net": net.state_dict(),
@@ -85,12 +91,8 @@ for epoch in range(s_epoch+1, n_epoch):
     if epoch % 5 == 0:
         torch.save(checkpoint,'{0}/model_epoch_{1}.pth.tar'.format(model_root, epoch))
         print("Save {0} epoch model in Path [{1}/model_epoch_{2}.pth.tar]".format(epoch, model_root, epoch))
-
-        train_loss = loss_all/len(dataloader_train)
-        test_loss = test(net)
-        print('epoch: %d,  test_loss : %f' % (epoch, test_loss))
+        
         writer.add_scalars('Loss', {'train_loss': train_loss, 'test_loss':test_loss}, epoch)
         writer.close()
-    # writer.flush()
 
 pass

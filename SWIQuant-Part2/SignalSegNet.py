@@ -119,6 +119,7 @@ class SignalSegNet(nn.Module):
 
         self.block = block
         self.layers = layers
+        self.layers_num = len(self.layers)
 
         self.conv1 = nn.Conv1d(1, self.inplane, kernel_size=7, stride=3, padding=4, bias=False)
         self.bn1 = nn.BatchNorm1d(self.inplane)
@@ -126,25 +127,33 @@ class SignalSegNet(nn.Module):
         self.maxpool = nn.MaxPool1d(kernel_size=3, padding=1, stride=2)
 
         # 64, 128, 256, 512是指扩大四倍之前的维度
-        self.stage1 = self.make_layer(self.block, 64, self.layers[0], stride=1)
-        self.stage2 = self.make_layer(self.block, 128, self.layers[1], stride=2)
-        self.stage3 = self.make_layer(self.block, 256, self.layers[2], stride=2)
-        self.stage4 = self.make_layer(self.block, 512, self.layers[3], stride=2)
-        self.stage5 = self.make_layer(self.block, 1024, self.layers[4], stride=2)
+        # self.stage1 = self.make_layer(self.block, 64, self.layers[0], stride=1)
+        # self.stage2 = self.make_layer(self.block, 128, self.layers[1], stride=2)
+        # self.stage3 = self.make_layer(self.block, 256, self.layers[2], stride=2)
+        # self.stage4 = self.make_layer(self.block, 512, self.layers[3], stride=2)
+        # self.stage5 = self.make_layer(self.block, 1024, self.layers[4], stride=2)
 
-        # self.conv_final = nn.Conv1d(1024, 1024, kernel_size=5, padding=2, stride=3)
-        # self.bn_final = nn.BatchNorm1d(1024)
-        # self.relu_final = nn.ReLU()
-        # self.avgpool = nn.AvgPool1d(47)
-        # self.fc = nn.Linear(1024, 1)
-        # self.relu_out = nn.ReLU()
+        self.stages = nn.ModuleList()
+        for i in range(self.layers_num):
+            if i == 0:
+                s = 1
+            else:
+                s = 2
+            self.stages.append(self.make_layer(self.block, 64*2**i, self.layers[i], stride=s))
 
-        self.decoder4 = Decoder_block(1024, 512, output_padding=1)
-        self.decoder3 = Decoder_block(512, 256, output_padding=0)
-        self.decoder2 = Decoder_block(256, 128, output_padding=1)
-        self.decoder1 = Decoder_block(128, 64, output_padding=0)
+        # self.decoder4 = Decoder_block(1024, 512, output_padding=1)
+        # self.decoder3 = Decoder_block(512, 256, output_padding=0)
+        # self.decoder2 = Decoder_block(256, 128, output_padding=1)
+        # self.decoder1 = Decoder_block(128, 64, output_padding=0)
 
-        # self.bilinear = nn.functional.interpolate(scale_factor=2, mode='bilinear')
+        self.decoders = nn.ModuleList()
+        for i in range(self.layers_num, 1, -1):
+            if i == 0:
+                s = 1
+            else:
+                s = 2
+            self.decoders.append(Decoder_block(64*2**(i-1), 64*2**(i-2), output_padding=i%2))
+
         self.unsample_conv = nn.ConvTranspose1d(64, 32, kernel_size=7, stride=3, padding=4, bias=False)
         self.conv_final = conv1x1(32, 2)
         self.bn_final = nn.BatchNorm1d(2)
@@ -158,16 +167,28 @@ class SignalSegNet(nn.Module):
         out = self.maxpool(out)
 
         # block
-        down1 = self.stage1(out)
-        down2 = self.stage2(down1)
-        down3 = self.stage3(down2)
-        down4 = self.stage4(down3)
-        down5 = self.stage5(down4)
+        downs = []
+        for i in range(self.layers_num):
+            if i == 0:
+                input = out
+            else:
+                input = downs[i-1]
+            downs.append(self.stages[i](input))
+        # down1 = self.stage1(out)
+        # down2 = self.stage2(down1)
+        # down3 = self.stage3(down2)
+        # down4 = self.stage4(down3)
+        # down5 = self.stage5(down4)
+        for i in range(self.layers_num-1):
+            if i == 0:
+                up1 = self.decoders[i](downs[-1], downs[-2])
+            else:
+                up1 = self.decoders[i](up1, downs[-i-2])
 
-        up4 = self.decoder4(down5, down4)
-        up3 = self.decoder3(up4, down3)
-        up2 = self.decoder2(up3, down2)
-        up1 = self.decoder1(up2, down1)
+        # up4 = self.decoder4(down5, down4)
+        # up3 = self.decoder3(up4, down3)
+        # up2 = self.decoder2(up3, down2)
+        # up1 = self.decoder1(up2, down1)
 
         out = nn.functional.interpolate(input=up1, scale_factor=2, mode='linear', align_corners=True)
         out = self.unsample_conv(out)

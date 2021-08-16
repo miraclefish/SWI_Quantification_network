@@ -110,23 +110,23 @@ def test(net, dataset):
 
 if __name__ == "__main__":
 
-    
-    filelist = os.listdir('Seg5data/Data')
+    root = 'Seg5data/testData'
+    filelist = os.listdir(root)
 
     
     # filelist = [file for i, file in enumerate(filelist) if i not in [4,5,14]]
-    net = inital_net(model_root='E:\\segmodel\\Segmodel1', epoch=1400)
-    for file in filelist[11:]:
+    # net = inital_net(model_root='model-check', epoch=155)
+    # for file in filelist[11:]:
         
-        DataPath = os.path.join('Seg5data/Data', file)
-        dataset = Dataset_test(DataPath=DataPath)
-        data, label, pred = test(net=net, dataset=dataset)
-        s_pair = label2Spair(pred)
-        pred_new = pair2label(s_pair, len(data), 250)
-        for i in range(round(len(data)/10000)):
-            plot_demo(data=data, label=label, time=i*10, length=10, pred=pred_new, filename=file)
-        pass
-    pass
+    #     DataPath = os.path.join('Seg5data/testData', file)
+    #     dataset = Dataset_test(DataPath=DataPath)
+    #     data, label, pred = test(net=net, dataset=dataset)
+    #     s_pair = label2Spair(pred)
+    #     pred_new = pair2label(s_pair, len(data), 250)
+    #     for i in range(round(len(data)/10000)):
+    #         plot_demo(data=data, label=label, time=i*10, length=10, pred=pred_new, filename=file)
+    #     pass
+    # pass
     Sens = []
     Prec = []
     Fp_min = []
@@ -154,17 +154,17 @@ if __name__ == "__main__":
     Dur_err2 = []
 
     # filelist = [file for i, file in enumerate(filelist) if i not in [4,5,14]]
-    net = inital_net(model_root='E:\\segmodel\\Segmodel1', epoch=1400)
+    net = inital_net(model_root='model-check', epoch=690)
     with tqdm(total=len(filelist)) as pbar:
 
         pbar.set_description('Testing:')
         for i, file in enumerate(filelist):
             
-            DataPath = os.path.join('Seg5data/Data', file)
+            DataPath = os.path.join(root, file)
             dataset = Dataset_test(DataPath=DataPath)
             data, label, pred = test(net=net, dataset=dataset)
             s_pair = label2Spair(pred)
-            pred_new = pair2label(s_pair, len(data), 250)
+            pred_new = pair2label(s_pair, len(data), 200)
             sens, pre, fp_min= evalu(label=label, pred=pred_new, iou_th=0.3)
             Sens.append(sens*100)
             Prec.append(pre*100)
@@ -211,7 +211,7 @@ if __name__ == "__main__":
             'Derr1': Dur_err1, 'Derr2':Dur_err2, 'Derr':Dur_err}
     tabel = pd.DataFrame.from_dict(tabel)
     tabel = tabel.round(2)
-    tabel.to_csv('Seg15data250-1400.csv', index=0)
+    tabel.to_csv('New_Seg15data200-1400.csv', index=0)
 
     pass
 
