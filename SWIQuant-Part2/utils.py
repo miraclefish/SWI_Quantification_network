@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+from tqdm import tqdm
 
 import matplotlib as mpl
 
@@ -68,7 +69,7 @@ def plot_data(dataPath, time, length, pred=None, Sens=1.5, save_fig=False):
     plt.suptitle('{} : {}s-{}s'.format(filename, time, time+length))
     plt.subplots_adjust(hspace=0.05)
     if save_fig:
-        path = os.path.join('PlotDataset2', "{}-{}.png".format(filename, time))
+        path = os.path.join('PlotDataset2', "{}-{}.png".format(filename[:-4], time))
         plt.savefig(path, dpi=500, bbox_inches='tight')
         plt.close(fig)
     else:
@@ -152,15 +153,19 @@ def parse_dir(dataPath):
 
 if __name__ == "__main__":
 
-    filelist = os.listdir('Seg5data\\Data')
+    root = 'Seg5data\\trainData'
+    filelist = os.listdir(root)
     length = 10
 
-    for file in filelist:
-        path = os.path.join('Seg5data\\Data', file)
-        for i in range(5):
-            time = i*10
-            plot_data(dataPath=path, time=time, length=length, Sens=4.5, save_fig=True)
-        pass
+    with tqdm(total=len(filelist)) as pbar:
+        pbar.set_description('Ploting Dataset2:')
+        for file in filelist[5:]:
+            path = os.path.join(root, file)
+            for i in range(5):
+                time = i*10
+                plot_data(dataPath=path, time=time, length=length, Sens=4.5, save_fig=False)
+            pass
+            pbar.update(1)
 
 
     # dataPath = "Seg5data\\Data\\2-苏涵-1.txt"

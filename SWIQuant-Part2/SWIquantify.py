@@ -2,7 +2,6 @@ import os
 
 import numpy as np
 import pandas as pd
-from scipy import stats
 from scipy.signal import butter, filtfilt
 import matplotlib.pyplot as plt
 
@@ -33,7 +32,7 @@ class SWIquantify(object):
         self.score = self.Adaptive_Decomposition()
 
         swi = []
-        thresholds = np.linspace(0.01,4.50,250)
+        thresholds = np.concatenate([np.linspace(0.001, 0.02, 20), np.linspace(0.03, 1, 98), np.linspace(1.1, 4, 30)])
 
         for threshold in thresholds:
             
@@ -51,7 +50,7 @@ class SWIquantify(object):
         err = np.abs(swi-self.swi_label)
         ind = np.argmin(err)
         min_err = err[ind]
-
+        print("The Optimal threshold index: ", str(ind), " [", str(thresholds[ind]),"]\n")
         optimal_th = thresholds[ind]
 
         return optimal_th, min_err

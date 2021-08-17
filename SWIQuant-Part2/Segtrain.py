@@ -17,22 +17,23 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print("<<<<<<<< Device: ", device," >>>>>>>>>>>")
 
 lr = 1e-3
-batch_size = 8
+batch_size = 48
 n_epoch = 1000
 s_epoch = -1
+layers = [2,2,2]
 RESUME = False
-model_root = "./model-check"
+model_root = "model-"+str(len(layers))+"-layers"+str(0)
 
 dataset_train = Dataset_train(DataPath="Seg5data\\trainData", input_size=30014, stride=3000)
 dataloader_train = DataLoader(dataset=dataset_train, batch_size=batch_size, shuffle=True)
 
 # 定义网络
-writer = SummaryWriter('./log/runs0', flush_secs=1)
+writer = SummaryWriter('./log/'+model_root, flush_secs=1)
 
-net = SignalSegNet(Basicblock, [2,2,2,2,2])
+net = SignalSegNet(Basicblock, layers)
 
 optimizer = optim.Adam(net.parameters(), lr=lr, weight_decay=0.01)
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.9)
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.9)
 loss = nn.CrossEntropyLoss()
 
 net = net.to(device)
@@ -88,7 +89,7 @@ for epoch in range(s_epoch+1, n_epoch):
         }
     if not os.path.isdir(model_root):
         os.mkdir(model_root)
-    if epoch % 5 == 0:
+    if epoch % 4 == 0:
         torch.save(checkpoint,'{0}/model_epoch_{1}.pth.tar'.format(model_root, epoch))
         print("Save {0} epoch model in Path [{1}/model_epoch_{2}.pth.tar]".format(epoch, model_root, epoch))
         

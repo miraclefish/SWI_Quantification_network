@@ -28,7 +28,7 @@ class Dataset_train(Dataset):
             
         raw_data = pd.read_csv(file, sep='\t', index_col=0)
         Data = raw_data[raw_data.columns[0]].values.reshape(1, -1)
-        Label = raw_data['Atn-0'].values
+        Label = raw_data['PreAtn'].values
         length = Data.shape[1]
 
         data = np.zeros((1, self.input_size))
