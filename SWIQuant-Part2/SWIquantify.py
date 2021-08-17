@@ -32,7 +32,7 @@ class SWIquantify(object):
         self.score = self.Adaptive_Decomposition()
 
         swi = []
-        thresholds = np.concatenate([np.linspace(0.001, 0.02, 20), np.linspace(0.03, 1, 98), np.linspace(1.1, 4, 30)])
+        thresholds = np.concatenate([np.linspace(0.30, 1, 71), np.linspace(1.1, 3, 20)])
 
         for threshold in thresholds:
             
@@ -178,7 +178,7 @@ class SWIquantify(object):
         return out
 
     def _get_swi_label(self):
-        return np.mean(self.label)
+        return np.mean(self.label[:,0])
 
     def load_data(self):
 

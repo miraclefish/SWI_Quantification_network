@@ -110,7 +110,7 @@ def test(net, dataset):
 
 if __name__ == "__main__":
 
-    root = 'Seg5data/Data'
+    root = 'Seg5data/testData2'
     filelist = os.listdir(root)
 
     
@@ -211,7 +211,7 @@ if __name__ == "__main__":
             'Derr1': Dur_err1, 'Derr2':Dur_err2, 'Derr':Dur_err}
     tabel = pd.DataFrame.from_dict(tabel)
     tabel = tabel.round(2)
-    tabel.to_csv('TestResult\\Seg25data200-690.csv', index=0)
+    tabel.to_csv('TestResult\\testData2-200-690.csv', index=0)
 
     pass
 

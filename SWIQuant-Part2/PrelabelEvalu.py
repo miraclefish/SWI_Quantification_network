@@ -12,7 +12,7 @@ def label2Spair(label):
 
     if label[0] == 1:
         inds.insert(0, 0)
-    elif label[-1] == 1:
+    if label[-1] == 1:
         inds.append(len(label))
 
     s_pair = np.array(inds)
@@ -70,16 +70,16 @@ if __name__ == "__main__":
     filelist = os.listdir(root)
     # S_num = []
     Swi = []
-    # for file in filelist[7:]:
-    #     dataPath = os.path.join(root, file)
-    #     SwiQ = SWIquantify(filepath=dataPath, Spike_width=76, print_log=True)
-    #     th, min_err = SwiQ.fix_threshold()
-    #     swi = SwiQ.get_optimal_result(th)
-    #     label_pred = SwiQ.mask.reshape(-1,1)
-    #     L = len(SwiQ.data)
-    #     for i in range(round(L/10000)):
-    #         SwiQ.plot_demo(time=i*10, length=10, pred=label_pred, save_fig=False)
-    #     pass
+    for file in filelist[9:]:
+        dataPath = os.path.join(root, file)
+        SwiQ = SWIquantify(filepath=dataPath, Spike_width=76, print_log=True)
+        th, min_err = SwiQ.fix_threshold()
+        swi = SwiQ.get_optimal_result(th)
+        label_pred = SwiQ.mask.reshape(-1,1)
+        L = len(SwiQ.data)
+        for i in range(round(L/10000)):
+            SwiQ.plot_demo(time=i*10, length=10, pred=label_pred, save_fig=False)
+        pass
 
     filelist = os.listdir(root)
     Sens = []
@@ -104,7 +104,7 @@ if __name__ == "__main__":
         Fp_min.append(fp_min)
         Swi.append(swi)
         Swi_label_0.append(swi_label_0)
-        Data = pd.read_csv(dataPath, sep='\t')
+        Data = pd.read_csv(dataPath, sep='\t', index_col=0)
         Data['PreAtn'] = label_pred
         Data.to_csv(os.path.join('Seg5data/trainData', file), sep='\t', index=0)
 
@@ -112,7 +112,7 @@ if __name__ == "__main__":
     
     tabel = {'Name':filelist, 'Sens':Sens, 'Prec':Prec, 'Fp_min':Fp_min, 'Swi':Swi, 'Swi_label':Swi_label_0}
     tabel = pd.DataFrame.from_dict(tabel)
-    tabel.to_csv('Seg5data/PreLabelResult0-4.csv', index=0)
+    tabel.to_csv('Seg5data/PreLabelResult0-3.csv', index=0)
     
     pass
 
