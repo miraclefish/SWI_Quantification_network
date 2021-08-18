@@ -6,18 +6,18 @@ from torch.utils.data import DataLoader
 from torch import nn
 from Dataset_test import Dataset_test
 
-def test(net):
+def test(net, root):
 
     with torch.no_grad():
         net.eval()
         loss = nn.CrossEntropyLoss()
         loss_all = 0
 
-        filelist = os.listdir('Seg5data/testData')
+        filelist = os.listdir(root)
         
         for file in filelist:
             
-            DataPath = os.path.join('Seg5data/testData', file)
+            DataPath = os.path.join(root, file)
             dataset = Dataset_test(DataPath=DataPath)
 
             device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")

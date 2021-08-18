@@ -5,7 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-from SignalSegNetOld import SignalSegNet, Basicblock
+from SignalSegNet import SignalSegNet, Basicblock
 from torch.utils.data import DataLoader, dataset
 from Dataset_test import Dataset_test
 from utils import adjust_window, label2Spair, pair2label
@@ -110,7 +110,7 @@ def test(net, dataset):
 
 if __name__ == "__main__":
 
-    root = 'Seg5data/testData2'
+    root = 'Seg5data/testData1'
     filelist = os.listdir(root)
 
     
@@ -154,7 +154,7 @@ if __name__ == "__main__":
     Dur_err2 = []
 
     # filelist = [file for i, file in enumerate(filelist) if i not in [4,5,14]]
-    net = inital_net(model_root='model-check', epoch=690)
+    net = inital_net(model_root='model-check', epoch=56)
     with tqdm(total=len(filelist)) as pbar:
 
         pbar.set_description('Testing:')
@@ -211,7 +211,7 @@ if __name__ == "__main__":
             'Derr1': Dur_err1, 'Derr2':Dur_err2, 'Derr':Dur_err}
     tabel = pd.DataFrame.from_dict(tabel)
     tabel = tabel.round(2)
-    tabel.to_csv('TestResult\\testData2-200-690.csv', index=0)
+    tabel.to_csv('TestResult\\testData1-200-56_5layers.csv', index=0)
 
     pass
 

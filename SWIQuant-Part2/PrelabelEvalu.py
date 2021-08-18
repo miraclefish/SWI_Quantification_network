@@ -67,25 +67,26 @@ def evalu(label, pred, iou_th):
 if __name__ == "__main__":
 
     root = 'Seg5data/tData'
-    filelist = os.listdir(root)
+    # filelist = os.listdir(root)
     # S_num = []
-    Swi = []
-    for file in filelist[9:]:
-        dataPath = os.path.join(root, file)
-        SwiQ = SWIquantify(filepath=dataPath, Spike_width=76, print_log=True)
-        th, min_err = SwiQ.fix_threshold()
-        swi = SwiQ.get_optimal_result(th)
-        label_pred = SwiQ.mask.reshape(-1,1)
-        L = len(SwiQ.data)
-        for i in range(round(L/10000)):
-            SwiQ.plot_demo(time=i*10, length=10, pred=label_pred, save_fig=False)
-        pass
+    
+    # for file in filelist[9:]:
+    #     dataPath = os.path.join(root, file)
+    #     SwiQ = SWIquantify(filepath=dataPath, Spike_width=76, print_log=True)
+    #     th, min_err = SwiQ.fix_threshold()
+    #     swi = SwiQ.get_optimal_result(th)
+    #     label_pred = SwiQ.mask.reshape(-1,1)
+    #     L = len(SwiQ.data)
+    #     for i in range(round(L/10000)):
+    #         SwiQ.plot_demo(time=i*10, length=10, pred=label_pred, save_fig=False)
+    #     pass
 
     filelist = os.listdir(root)
     Sens = []
     Prec = []
     Fp_min = []
     Swi_label_0 = []
+    Swi = []
 
     for file in filelist:
 

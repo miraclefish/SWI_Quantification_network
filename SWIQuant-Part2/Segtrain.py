@@ -20,15 +20,15 @@ lr = 1e-3
 batch_size = 48
 n_epoch = 1000
 s_epoch = -1
-layers = [2,2,2]
+layers = [2,2,2,2,2]
 RESUME = False
-model_root = "model-"+str(len(layers))+"-layers"+str(0)
+model_root = "models/model-"+str(len(layers))+"-layers"+str(0)
 
 dataset_train = Dataset_train(DataPath="Seg5data\\trainData", input_size=30014, stride=3000)
 dataloader_train = DataLoader(dataset=dataset_train, batch_size=batch_size, shuffle=True)
 
 # 定义网络
-writer = SummaryWriter('./log/'+model_root, flush_secs=1)
+writer = SummaryWriter('./log/'+os.path.split(model_root)[1], flush_secs=1)
 
 net = SignalSegNet(Basicblock, layers)
 
@@ -79,7 +79,7 @@ for epoch in range(s_epoch+1, n_epoch):
     scheduler.step()
     
     train_loss = loss_all/len(dataloader_train)
-    test_loss = test(net)
+    test_loss = test(net, root='Seg5data/testData1')
     print('epoch: %d,  test_loss : %f' % (epoch, test_loss))
     # save_checkpoint_state(model_root, epoch, model=net, optimizer)
     checkpoint = {
