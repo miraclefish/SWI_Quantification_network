@@ -107,7 +107,7 @@ if __name__ == "__main__":
         Swi_label_0.append(swi_label_0)
         Data = pd.read_csv(dataPath, sep='\t', index_col=0)
         Data['PreAtn'] = label_pred
-        Data.to_csv(os.path.join('Seg5data/trainData', file), sep='\t', index=0)
+        Data.to_csv(os.path.join('Seg5data/trainData', file), sep='\t', index=True)
 
         pass
     

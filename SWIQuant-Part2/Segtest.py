@@ -4,39 +4,32 @@ import numpy as np
 from SignalSegNet import SignalSegNet, Basicblock
 from torch.utils.data import DataLoader
 from torch import nn
-from Dataset_test import Dataset_test
+from Dataset_train import Dataset_train
 
-def test(net, root):
+def test(net, root, input_size, stride):
 
     with torch.no_grad():
         net.eval()
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
         loss = nn.CrossEntropyLoss()
         loss_all = 0
 
-        filelist = os.listdir(root)
+        dataset = Dataset_train(DataPath=root, type='Test', input_size=input_size, stride=stride)
+
         
-        for file in filelist:
+        dataloader = DataLoader(dataset=dataset, batch_size=48, shuffle=False)
+
+        for data in dataloader:
             
-            DataPath = os.path.join(root, file)
-            dataset = Dataset_test(DataPath=DataPath)
+            x, label = data['Data'].float(), data['label'].long()
 
-            device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-            dataloader = DataLoader(dataset=dataset, batch_size=10, shuffle=False)
+            x = x.to(device)
+            label = label.to(device)
 
-            for i, data in enumerate(dataloader):
-                if i >= 1:
-                    print("!!!!!!!!!!!Wrong dataset!")
-                    break
-
-                x, label = data
-
-                net = net.to(device)
-                x = x.to(device)
-                label = label.to(device)
-
-                output = net(x=x)
-                loss_all += loss(output, label[:,0])
+            output = net(x=x)
+            Loss =  loss(output, label)
+            loss_all += Loss.cpu().data.numpy()
             
-    loss_all = loss_all/len(filelist)
-    loss_all = loss_all.cpu().data.numpy()
+        loss_all = loss_all/len(dataloader)
     return loss_all

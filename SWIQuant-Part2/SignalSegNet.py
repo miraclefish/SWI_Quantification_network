@@ -94,9 +94,12 @@ class Decoder_block(nn.Module):
         self.relu = nn.ReLU()
         self.bn2 = nn.BatchNorm1d(outplanes)
         self.conv2 = conv5x1(outplanes, outplanes)
+        self.padding = nn.ConstantPad1d((0,1), 0)
 
     def forward(self, x1, x2):
         x1 = self.upsample(x1)
+        if x1.shape[2] < x2.shape[2]:
+            x1 = self.padding(x1)
         out = torch.cat((x1, x2), dim=1)
 
         out = self.conv1(out)
@@ -152,7 +155,7 @@ class SignalSegNet(nn.Module):
                 s = 1
             else:
                 s = 2
-            self.decoders.append(Decoder_block(64*2**(i-1), 64*2**(i-2), output_padding=i%2))
+            self.decoders.append(Decoder_block(64*2**(i-1), 64*2**(i-2)))
 
         self.unsample_conv = nn.ConvTranspose1d(64, 32, kernel_size=7, stride=3, padding=4, bias=False)
         self.conv_final = conv1x1(32, 2)
@@ -229,7 +232,7 @@ class SignalSegNet(nn.Module):
 
 if __name__ == "__main__":
     net = SignalSegNet(Basicblock, [2,2,2,2,2])
-    input = torch.randn([3,1,30014])
+    input = torch.randn([3,1,10000])
     output = net(x=input)
     print("参数数量：\n", sum(p.numel() for p in net.parameters() if p.requires_grad))
     pass

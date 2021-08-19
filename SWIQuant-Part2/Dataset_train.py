@@ -7,7 +7,7 @@ from torch.utils.data import Dataset
 
 class Dataset_train(Dataset):
 
-    def __init__(self, DataPath, input_size, stride):
+    def __init__(self, DataPath, type, input_size, stride):
 
         if os.path.isabs(DataPath):
             self.DataPath = DataPath
@@ -15,6 +15,7 @@ class Dataset_train(Dataset):
             self.DataPath = os.getcwd() + "\\" + DataPath
         self.input_size = input_size
         self.stride = stride
+        self.type = type
 
         self.filelist, self.signal_length = self.pre_load_data()
         self.sample_path_list, self.index_list = self.split_data()
@@ -28,7 +29,12 @@ class Dataset_train(Dataset):
             
         raw_data = pd.read_csv(file, sep='\t', index_col=0)
         Data = raw_data[raw_data.columns[0]].values.reshape(1, -1)
-        Label = raw_data['PreAtn'].values
+
+        if self.type == "Train":
+            Label = raw_data['PreAtn'].values
+        if self.type == "Test":
+            Label = raw_data['Atn-0'].values
+
         length = Data.shape[1]
 
         data = np.zeros((1, self.input_size))
@@ -71,5 +77,6 @@ class Dataset_train(Dataset):
 
 if __name__ == "__main__":
 
-    data_train = Dataset_train(DataPath="Seg5data\\Data", input_size=30014, stride=3000)
+    data_train = Dataset_train(DataPath="Seg5data\\trainData", type="Train", input_size=30014, stride=3000)
+    data_test = Dataset_train(DataPath="Seg5data\\testData1", type="Test", input_size=30014, stride=3000)
     pass

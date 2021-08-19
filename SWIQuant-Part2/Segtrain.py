@@ -20,11 +20,13 @@ lr = 1e-3
 batch_size = 48
 n_epoch = 1000
 s_epoch = -1
-layers = [2,2,2,2,2]
+layers = [2,2]
+input_size = 5000
+stride = 2000
 RESUME = False
-model_root = "models/model-"+str(len(layers))+"-layers"+str(0)
+model_root = "models5000/model-"+str(len(layers))+"-layers"+str(0)
 
-dataset_train = Dataset_train(DataPath="Seg5data\\trainData", input_size=30014, stride=3000)
+dataset_train = Dataset_train(DataPath="Seg5data\\trainData", type='Train', input_size=input_size, stride=stride)
 dataloader_train = DataLoader(dataset=dataset_train, batch_size=batch_size, shuffle=True)
 
 # 定义网络
@@ -38,6 +40,7 @@ loss = nn.CrossEntropyLoss()
 
 net = net.to(device)
 loss = loss.to(device)
+
 net.train()
 
 if RESUME:
@@ -55,6 +58,7 @@ for epoch in range(s_epoch+1, n_epoch):
     
     loss_all = 0
 
+    net.train()
     while i < len(dataloader_train):
 
         data_train = data_train_iter.next()
@@ -79,7 +83,7 @@ for epoch in range(s_epoch+1, n_epoch):
     scheduler.step()
     
     train_loss = loss_all/len(dataloader_train)
-    test_loss = test(net, root='Seg5data/testData1')
+    test_loss = test(net, root='Seg5data/testData1', input_size=input_size, stride=stride)
     print('epoch: %d,  test_loss : %f' % (epoch, test_loss))
     # save_checkpoint_state(model_root, epoch, model=net, optimizer)
     checkpoint = {
@@ -89,7 +93,7 @@ for epoch in range(s_epoch+1, n_epoch):
         }
     if not os.path.isdir(model_root):
         os.mkdir(model_root)
-    if epoch % 4 == 0:
+    if epoch % 2 == 0:
         torch.save(checkpoint,'{0}/model_epoch_{1}.pth.tar'.format(model_root, epoch))
         print("Save {0} epoch model in Path [{1}/model_epoch_{2}.pth.tar]".format(epoch, model_root, epoch))
         

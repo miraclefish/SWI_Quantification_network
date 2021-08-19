@@ -12,9 +12,9 @@ from utils import adjust_window, label2Spair, pair2label
 from PrelabelEvalu import evalu
 
 
-def inital_net(model_root, epoch=0):
+def inital_net(model_root, layers, epoch=0):
 
-    net = SignalSegNet(Basicblock, [2,2,2,2,2])
+    net = SignalSegNet(Basicblock, layers)
     checkpoint = torch.load(os.path.join(model_root, 'model_epoch_'+str(epoch)+'.pth.tar'), map_location=torch.device('cpu'))
     net.load_state_dict(checkpoint['net'])
     net = net.eval()
@@ -112,13 +112,13 @@ if __name__ == "__main__":
 
     root = 'Seg5data/testData1'
     filelist = os.listdir(root)
+    layers = [2,2]
+    epoch = 32
 
-    
-    # filelist = [file for i, file in enumerate(filelist) if i not in [4,5,14]]
-    # net = inital_net(model_root='model-check', epoch=155)
+    net = inital_net(model_root='model-check', layers=layers, epoch=epoch)
     # for file in filelist[11:]:
         
-    #     DataPath = os.path.join('Seg5data/testData', file)
+    #     DataPath = os.path.join(root, file)
     #     dataset = Dataset_test(DataPath=DataPath)
     #     data, label, pred = test(net=net, dataset=dataset)
     #     s_pair = label2Spair(pred)
@@ -153,8 +153,6 @@ if __name__ == "__main__":
     Dur_err1 = []
     Dur_err2 = []
 
-    # filelist = [file for i, file in enumerate(filelist) if i not in [4,5,14]]
-    net = inital_net(model_root='model-check', epoch=56)
     with tqdm(total=len(filelist)) as pbar:
 
         pbar.set_description('Testing:')
@@ -211,7 +209,7 @@ if __name__ == "__main__":
             'Derr1': Dur_err1, 'Derr2':Dur_err2, 'Derr':Dur_err}
     tabel = pd.DataFrame.from_dict(tabel)
     tabel = tabel.round(2)
-    tabel.to_csv('TestResult\\testData1-200-56_5layers.csv', index=0)
+    tabel.to_csv('TestResult\\'+os.path.split(root)[1]+'-200-'+str(len(layers))+'layers-'+str(epoch)+'.csv', index=0, encoding='ANSI')
 
     pass
 
