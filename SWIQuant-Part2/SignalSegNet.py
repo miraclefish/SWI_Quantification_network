@@ -231,7 +231,7 @@ class SignalSegNet(nn.Module):
         
 
 if __name__ == "__main__":
-    net = SignalSegNet(Basicblock, [2,2,2,2,2])
+    net = SignalSegNet(Basicblock, [2,2])
     input = torch.randn([3,1,10000])
     output = net(x=input)
     print("参数数量：\n", sum(p.numel() for p in net.parameters() if p.requires_grad))

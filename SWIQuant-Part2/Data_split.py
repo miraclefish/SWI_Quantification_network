@@ -1,8 +1,8 @@
 import os
-import torch
 import pandas as pd
 import numpy as np
 from torch.utils.data import Dataset
+from tqdm import tqdm
 
 class Dataset_train(Dataset):
 
@@ -27,26 +27,32 @@ class Dataset_train(Dataset):
         start, end = self.index_list[idx]
             
         raw_data = pd.read_csv(file, sep='\t', index_col=0)
-        Data = raw_data[raw_data.columns[0]].values.reshape(1, -1)
+        Data = raw_data[raw_data.columns[0]].values
 
         if self.type == "Train":
             Label = raw_data['PreAtn'].values
         if self.type == "Test":
             Label = raw_data['Atn-0'].values
 
-        length = Data.shape[1]
+        length = Data.shape[0]
 
-        data = np.zeros((1, self.input_size))
+        data = np.zeros(self.input_size)
         label = np.zeros(self.input_size)
         if end < length:
-            data = Data[:, start:end]
+            data = Data[start:end]
             label[:] = Label[start:end]
         else:
-            data[0, :(length-start)] = Data[:, start:]
+            data[:(length-start)] = Data[start:]
             label[:(length-start)] = Label[start:]
-        data = torch.from_numpy(data)
-        label = torch.from_numpy(label)
+
         sample = {"Data":data, "label":label}
+        save_sample = pd.DataFrame(sample)
+        path, filename = os.path.split(file)
+        path = path + '_'+ str(self.input_size)
+        if not os.path.isdir(path):
+            os.mkdir(path)
+        save_path = os.path.join(path, "{}-{}-{}.txt".format(filename[:-4], start, end))
+        save_sample.to_csv(save_path, sep='\t')
         return sample
 
     def pre_load_data(self):
@@ -76,6 +82,16 @@ class Dataset_train(Dataset):
 
 if __name__ == "__main__":
 
-    data_train = Dataset_train(DataPath="Seg5data\\trainData", type="Train", input_size=30014, stride=3000)
-    data_test = Dataset_train(DataPath="Seg5data\\testData1", type="Test", input_size=30014, stride=3000)
+    data_train = Dataset_train(DataPath="Seg5data\\trainData", type="Train", input_size=5000, stride=2500)
+    data_test = Dataset_train(DataPath="Seg5data\\testData1", type="Test", input_size=5000, stride=2500)
+    with tqdm(total=len(data_train)) as pbar:
+        pbar.set_description("Split training set:")
+        for i in range(len(data_train)):
+            sample = data_train[i]
+            pbar.update(1)
+    with tqdm(total=len(data_test)) as pbar:
+        pbar.set_description("Spile test set:")
+        for i in range(len(data_test)):
+            sample = data_test[i]
+            pbar.update(1)
     pass

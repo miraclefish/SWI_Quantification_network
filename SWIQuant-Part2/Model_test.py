@@ -81,7 +81,7 @@ def plot_demo(data, label, time, length, pred=None, save_fig=False, filename=Non
 def test(net, dataset):
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    dataloader = DataLoader(dataset=dataset, batch_size=8, shuffle=False)
+    dataloader = DataLoader(dataset=dataset, batch_size=32, shuffle=False)
 
     for i, data in enumerate(dataloader):
         if i >= 1:
@@ -110,23 +110,23 @@ def test(net, dataset):
 
 if __name__ == "__main__":
 
-    root = 'Seg5data/testData1'
+    root = 'Seg5data/testData2'
     filelist = os.listdir(root)
-    layers = [2,2]
-    epoch = 32
+    layers = [2,2,2,2]
+    epoch = 272
 
-    net = inital_net(model_root='model-check', layers=layers, epoch=epoch)
-    # for file in filelist[11:]:
+    net = inital_net(model_root='model5000', layers=layers, epoch=epoch)
+    for file in filelist:
         
-    #     DataPath = os.path.join(root, file)
-    #     dataset = Dataset_test(DataPath=DataPath)
-    #     data, label, pred = test(net=net, dataset=dataset)
-    #     s_pair = label2Spair(pred)
-    #     pred_new = pair2label(s_pair, len(data), 250)
-    #     for i in range(round(len(data)/10000)):
-    #         plot_demo(data=data, label=label, time=i*10, length=10, pred=pred_new, filename=file)
-    #     pass
-    # pass
+        DataPath = os.path.join(root, file)
+        dataset = Dataset_test(DataPath=DataPath, input_size=5000)
+        data, label, pred = test(net=net, dataset=dataset)
+        s_pair = label2Spair(pred)
+        pred_new = pair2label(s_pair, len(data), 250)
+        for i in range(round(len(data)/10000)):
+            plot_demo(data=data, label=label, time=i*10, length=10, pred=pred_new, filename=file)
+        pass
+    pass
     Sens = []
     Prec = []
     Fp_min = []
@@ -159,7 +159,7 @@ if __name__ == "__main__":
         for i, file in enumerate(filelist):
             
             DataPath = os.path.join(root, file)
-            dataset = Dataset_test(DataPath=DataPath)
+            dataset = Dataset_test(DataPath=DataPath, input_size=5000)
             data, label, pred = test(net=net, dataset=dataset)
             s_pair = label2Spair(pred)
             pred_new = pair2label(s_pair, len(data), 200)
@@ -209,7 +209,7 @@ if __name__ == "__main__":
             'Derr1': Dur_err1, 'Derr2':Dur_err2, 'Derr':Dur_err}
     tabel = pd.DataFrame.from_dict(tabel)
     tabel = tabel.round(2)
-    tabel.to_csv('TestResult\\'+os.path.split(root)[1]+'-200-'+str(len(layers))+'layers-'+str(epoch)+'.csv', index=0, encoding='ANSI')
+    tabel.to_csv('TestResult5000\\'+os.path.split(root)[1]+'-200-'+str(len(layers))+'layers-'+str(epoch)+'.csv', index=0, encoding='ANSI')
 
     pass
 

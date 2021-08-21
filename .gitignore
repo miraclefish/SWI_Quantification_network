@@ -7,6 +7,7 @@
 *.json
 *.csv
 *.png
+*.eps
 *.tar
 **/log/
 

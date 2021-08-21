@@ -6,13 +6,14 @@ from torch.utils.data import Dataset
 
 class Dataset_test(Dataset):
 
-    def __init__(self, DataPath):
+    def __init__(self, DataPath, input_size):
 
         if os.path.isabs(DataPath):
             self.DataPath = DataPath
         else:
             self.DataPath = os.getcwd() + "\\" + DataPath
 
+        self.input_size = input_size
         self.data, self.s_channel, self.label = self.load_data()
         self.dataFill, self.labelFill, self.index_list, self.length = self.split_as_batch()
 
@@ -36,17 +37,16 @@ class Dataset_test(Dataset):
 
     def split_as_batch(self):
 
-        input_size = 30014
         L = self.data.shape[1]
-        batch_size = int(np.ceil(L/input_size))
-        dataFill = np.zeros((1, batch_size*input_size))
+        batch_size = int(np.ceil(L/self.input_size))
+        dataFill = np.zeros((1, batch_size*self.input_size))
         dataFill[0, :L] = self.data
-        labelFill = np.zeros((1, batch_size*input_size))
+        labelFill = np.zeros((1, batch_size*self.input_size))
         labelFill[0, :L] = self.label[:, 0]
-        index_list = [(i*input_size, (i+1)*input_size) for i in range(batch_size)]
+        index_list = [(i*self.input_size, (i+1)*self.input_size) for i in range(batch_size)]
         return dataFill, labelFill, index_list, L
 
 if __name__ == "__main__":
 
-    data_test = Dataset_test(DataPath="Seg5data\\Data\\1-刘晓逸-1.txt")
+    data_test = Dataset_test(DataPath="Seg5data\\Data\\1-刘晓逸-1.txt", input_size=5000)
     pass

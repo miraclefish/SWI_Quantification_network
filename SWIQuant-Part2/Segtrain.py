@@ -3,7 +3,7 @@ import numpy as np
 import torch
 
 from SignalSegNet import SignalSegNet, Basicblock
-from Dataset_train import Dataset_train
+from Train_dataset import Dataset_train
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torch import nn
@@ -22,15 +22,20 @@ n_epoch = 1000
 s_epoch = -1
 layers = [2,2]
 input_size = 5000
-stride = 2000
 RESUME = False
 model_root = "models5000/model-"+str(len(layers))+"-layers"+str(0)
 
-dataset_train = Dataset_train(DataPath="Seg5data\\trainData", type='Train', input_size=input_size, stride=stride)
+# dataset_train = Dataset_train(DataPath="Seg5data\\trainData", type='Train', input_size=input_size, stride=stride)
+dataset_train = Dataset_train(DataPath="Seg5data", type='Train', input_size=input_size)
 dataloader_train = DataLoader(dataset=dataset_train, batch_size=batch_size, shuffle=True)
+dataloader_train = list(dataloader_train)
+
+dataset_test = Dataset_train(DataPath="Seg5data", type='Test', input_size=input_size)
+dataloader_test = DataLoader(dataset=dataset_test, batch_size=batch_size, shuffle=False)
+dataloader_test = list(dataloader_test)
 
 # 定义网络
-writer = SummaryWriter('./log/'+os.path.split(model_root)[1], flush_secs=1)
+writer = SummaryWriter('./log/'+model_root, flush_secs=1)
 
 net = SignalSegNet(Basicblock, layers)
 
@@ -41,8 +46,6 @@ loss = nn.CrossEntropyLoss()
 net = net.to(device)
 loss = loss.to(device)
 
-net.train()
-
 if RESUME:
     print("<<<<<<<<<<< Resume model from {} epoch. >>>>>>>>>>>".format(s_epoch))
     path_checkpoint = '{0}/model_epoch_{1}.pth.tar'.format(model_root, s_epoch)
@@ -52,16 +55,12 @@ if RESUME:
     s_epoch = checkpoint['epoch']
 
 for epoch in range(s_epoch+1, n_epoch):
-    data_train_iter = iter(dataloader_train)
 
-    i = 0
-    
     loss_all = 0
 
     net.train()
-    while i < len(dataloader_train):
+    for i, data_train in enumerate(dataloader_train):
 
-        data_train = data_train_iter.next()
         x_data = data_train['Data'].float()
         label = data_train['label'].long()
         
@@ -83,7 +82,7 @@ for epoch in range(s_epoch+1, n_epoch):
     scheduler.step()
     
     train_loss = loss_all/len(dataloader_train)
-    test_loss = test(net, root='Seg5data/testData1', input_size=input_size, stride=stride)
+    test_loss = test(net, dataloader_test)
     print('epoch: %d,  test_loss : %f' % (epoch, test_loss))
     # save_checkpoint_state(model_root, epoch, model=net, optimizer)
     checkpoint = {
