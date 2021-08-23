@@ -112,21 +112,21 @@ if __name__ == "__main__":
 
     root = 'Seg5data/testData2'
     filelist = os.listdir(root)
-    layers = [2,2,2,2]
-    epoch = 272
+    layers = [2,2]
+    epoch = 116
 
     net = inital_net(model_root='model5000', layers=layers, epoch=epoch)
-    for file in filelist:
+    # for file in filelist:
         
-        DataPath = os.path.join(root, file)
-        dataset = Dataset_test(DataPath=DataPath, input_size=5000)
-        data, label, pred = test(net=net, dataset=dataset)
-        s_pair = label2Spair(pred)
-        pred_new = pair2label(s_pair, len(data), 250)
-        for i in range(round(len(data)/10000)):
-            plot_demo(data=data, label=label, time=i*10, length=10, pred=pred_new, filename=file)
-        pass
-    pass
+    #     DataPath = os.path.join(root, file)
+    #     dataset = Dataset_test(DataPath=DataPath, input_size=5000)
+    #     data, label, pred = test(net=net, dataset=dataset)
+    #     s_pair = label2Spair(pred)
+    #     pred_new = pair2label(s_pair, len(data), 250)
+    #     for i in range(round(len(data)/10000)):
+    #         plot_demo(data=data, label=label, time=i*10, length=10, pred=pred_new, filename=file)
+    #     pass
+    # pass
     Sens = []
     Prec = []
     Fp_min = []

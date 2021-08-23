@@ -33,19 +33,23 @@ class Dataset_train(Dataset):
             Label = raw_data['PreAtn'].values
         if self.type == "Test":
             Label = raw_data['Atn-0'].values
+        Score = raw_data['Score'].values
 
         length = Data.shape[0]
 
         data = np.zeros(self.input_size)
         label = np.zeros(self.input_size)
+        score = np.zeros(self.input_size)
         if end < length:
             data = Data[start:end]
             label[:] = Label[start:end]
+            score[:] = Score[start:end]
         else:
             data[:(length-start)] = Data[start:]
             label[:(length-start)] = Label[start:]
+            score[:(length-start)] = Score[start:]
 
-        sample = {"Data":data, "label":label}
+        sample = {"Data":data, "label":label, "score":score}
         save_sample = pd.DataFrame(sample)
         path, filename = os.path.split(file)
         path = path + '_'+ str(self.input_size)

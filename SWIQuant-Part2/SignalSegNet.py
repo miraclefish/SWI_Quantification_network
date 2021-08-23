@@ -1,7 +1,4 @@
 from torch import nn
-from torch.autograd import Function
-from torch.autograd import Variable
-import numpy as np
 import torch
 
 def conv5x1(in_planes, out_planes, stride=1, groups=1, dilation=1):
@@ -85,8 +82,9 @@ class Basicblock(nn.Module):
 
 class Decoder_block(nn.Module):
 
-    def __init__(self, inplanes, outplanes, output_padding=0, kernel_size=5, stride=2):
+    def __init__(self, inplanes, outplanes, mode='U-net', output_padding=0, kernel_size=5, stride=2):
         super(Decoder_block, self).__init__()
+        self.mode = mode
         self.upsample = nn.ConvTranspose1d(in_channels=inplanes, out_channels=outplanes,
                            padding=2, kernel_size=kernel_size, stride=stride, bias=False, output_padding=output_padding)
         self.conv1 = conv5x1(inplanes, outplanes)
@@ -96,10 +94,19 @@ class Decoder_block(nn.Module):
         self.conv2 = conv5x1(outplanes, outplanes)
         self.padding = nn.ConstantPad1d((0,1), 0)
 
+    def attention_net(self, x1, x2):
+        attn_weight = torch.bmm(x1.transpose(1,2), x2)
+        soft_attn_weight = nn.functional.softmax(attn_weight, 1)
+        context = torch.bmm(x2, soft_attn_weight.transpose(1,2))
+        return context, soft_attn_weight
+
     def forward(self, x1, x2):
+        attn = None
         x1 = self.upsample(x1)
         if x1.shape[2] < x2.shape[2]:
             x1 = self.padding(x1)
+        if self.mode in ['Att', 'Score+Att']:
+            x2, attn = self.attention_net(x1, x2)
         out = torch.cat((x1, x2), dim=1)
 
         out = self.conv1(out)
@@ -110,13 +117,15 @@ class Decoder_block(nn.Module):
         out = self.bn2(out)
         out = self.relu(out)
 
-        return out
+        return out, attn
 
 class SignalSegNet(nn.Module):
 
-    def __init__(self, block, layers):
+    def __init__(self, block, layers, mode='U-Net'):
 
+        self.mode = mode # 'U-Net', 'Att', 'Score'
         self.inplane = 64
+        self.dim_pra = self.inplane
 
         super(SignalSegNet, self).__init__()
 
@@ -130,11 +139,7 @@ class SignalSegNet(nn.Module):
         self.maxpool = nn.MaxPool1d(kernel_size=3, padding=1, stride=2)
 
         # 64, 128, 256, 512是指扩大四倍之前的维度
-        # self.stage1 = self.make_layer(self.block, 64, self.layers[0], stride=1)
-        # self.stage2 = self.make_layer(self.block, 128, self.layers[1], stride=2)
-        # self.stage3 = self.make_layer(self.block, 256, self.layers[2], stride=2)
-        # self.stage4 = self.make_layer(self.block, 512, self.layers[3], stride=2)
-        # self.stage5 = self.make_layer(self.block, 1024, self.layers[4], stride=2)
+        # n stage 从 64, 128, 256, 512 到 1024
 
         self.stages = nn.ModuleList()
         for i in range(self.layers_num):
@@ -142,28 +147,30 @@ class SignalSegNet(nn.Module):
                 s = 1
             else:
                 s = 2
-            self.stages.append(self.make_layer(self.block, 64*2**i, self.layers[i], stride=s))
-
-        # self.decoder4 = Decoder_block(1024, 512, output_padding=1)
-        # self.decoder3 = Decoder_block(512, 256, output_padding=0)
-        # self.decoder2 = Decoder_block(256, 128, output_padding=1)
-        # self.decoder1 = Decoder_block(128, 64, output_padding=0)
+            self.stages.append(self.make_layer(self.block, self.dim_pra*2**i, self.layers[i], stride=s))
 
         self.decoders = nn.ModuleList()
         for i in range(self.layers_num, 1, -1):
-            if i == 0:
-                s = 1
-            else:
-                s = 2
-            self.decoders.append(Decoder_block(64*2**(i-1), 64*2**(i-2)))
+            self.decoders.append(Decoder_block(self.dim_pra*2**(i-1), self.dim_pra*2**(i-2), mode=self.mode))
 
-        self.unsample_conv = nn.ConvTranspose1d(64, 32, kernel_size=7, stride=3, padding=4, bias=False)
-        self.conv_final = conv1x1(32, 2)
+        if self.mode in ['Score', 'Score+Att']:
+            self.score_head = nn.Sequential(nn.Conv1d(1, self.dim_pra, kernel_size=7, stride=3, padding=4, bias=False),
+                                nn.BatchNorm1d(self.dim_pra),
+                                nn.Sigmoid(),
+                                nn.MaxPool1d(kernel_size=3, padding=1, stride=2))
+            self.score_downs = nn.ModuleList()
+            for i in range(self.layers_num-1):
+                self.score_downs.append(ScoreBlock(self.dim_pra*2**i, self.dim_pra*2**(i+1), 2))
+
+        self.unsample_conv = nn.ConvTranspose1d(self.dim_pra, int(self.dim_pra/2), kernel_size=7, stride=3, padding=4, bias=False)
+        self.conv_final = conv1x1(int(self.dim_pra/2), 2)
         self.bn_final = nn.BatchNorm1d(2)
         self.relu_final = nn.ReLU(inplace=True)
 
-    def forward(self, x):
+    def forward(self, x, score):
         
+        # x.shape = [batch_size, 1, input_size]
+        # score.shape = [batch_size, 1, input_size]
         out = self.conv1(x)
         out = self.bn1(out)
         out = self.relu(out)
@@ -182,11 +189,21 @@ class SignalSegNet(nn.Module):
         # down3 = self.stage3(down2)
         # down4 = self.stage4(down3)
         # down5 = self.stage5(down4)
+        if self.mode in ['Score', 'Score+Att']:
+            scores = []
+            scores.append(self.score_head(score))
+            for i in range(self.layers_num-1):
+                scores.append(self.score_downs[i](scores[-1]))
+            for i in range(self.layers_num):
+                downs[i] = torch.mul(downs[i], scores[i])
+
+        Attn = []
         for i in range(self.layers_num-1):
             if i == 0:
-                up1 = self.decoders[i](downs[-1], downs[-2])
+                up1, attn = self.decoders[i](downs[-1], downs[-2])
             else:
-                up1 = self.decoders[i](up1, downs[-i-2])
+                up1, attn = self.decoders[i](up1, downs[-i-2])
+            Attn.append(attn)
 
         # up4 = self.decoder4(down5, down4)
         # up3 = self.decoder3(up4, down3)
@@ -199,7 +216,7 @@ class SignalSegNet(nn.Module):
         out = self.bn_final(out)
         out = self.relu_final(out)
 
-        return out
+        return out, Attn
     
     def make_layer(self, block, midplane, block_num, stride=1):
         '''
@@ -228,11 +245,25 @@ class SignalSegNet(nn.Module):
             block_list.append(block(self.inplane, midplane, stride=1))
         
         return nn.Sequential(*block_list)
+
+class ScoreBlock(nn.Module):
+
+    def __init__(self, inplane, midplane, stride):
+        super(ScoreBlock, self).__init__()
+        
+        self.conv1 = conv5x1(inplane, midplane, stride)
+        self.bn1 = nn.BatchNorm1d(midplane)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        out = self.sigmoid(self.bn1(self.conv1(x)))
+        return out
         
 
 if __name__ == "__main__":
-    net = SignalSegNet(Basicblock, [2,2])
-    input = torch.randn([3,1,10000])
-    output = net(x=input)
+    net = SignalSegNet(Basicblock, [2,2,2,2,2], mode='U-net')
+    input = torch.randn([3,1,5000])
+    s = torch.randn([3,1,5000])
+    output = net(x=input, score=s)
     print("参数数量：\n", sum(p.numel() for p in net.parameters() if p.requires_grad))
     pass

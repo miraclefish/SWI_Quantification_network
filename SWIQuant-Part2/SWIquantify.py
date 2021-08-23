@@ -141,7 +141,7 @@ class SWIquantify(object):
     def Adaptive_Decomposition(self):
 
         # 保证滑窗滤波后信号长度与原信号长度相同，进行Padding操作
-        pad_width = ((int((self.Spike_width-1)/2),int((self.Spike_width-1)/2)), (0,0))
+        pad_width = ((int((self.Spike_width-1)/2),int(np.ceil((self.Spike_width-1)/2))), (0,0))
         x_pad = np.pad(self.bandPassData, pad_width=pad_width, mode='constant', constant_values=0)
 
         # 对 data 滑窗的过程矩阵并行化，详情请参考函数 self._window_slide()

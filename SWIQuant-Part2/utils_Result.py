@@ -74,7 +74,7 @@ class OneModelAnalysis(object):
         plt.grid(linestyle='--', alpha=0.5)
         plt.ylim([0,35])
         if save:
-            plt.savefig('fig\\'+os.path.split(self.file)[1][:-3]+'eps', dpi=500, bbox_inches='tight')
+            plt.savefig('fig\\'+os.path.split(self.file)[1][:-3]+'.png', dpi=500, bbox_inches='tight')
             plt.close()
         else:
             plt.show()
@@ -101,7 +101,7 @@ if __name__ == '__main__':
 
     model_check = ModelCheck(ResultPath='TestResult', Dataset='testData1', layers=[2,5])
     # example = OneModelAnalysis(file='TestResult\\testData1-200-2layers-32.csv')
-    example = OneModelAnalysis(file='TestResult5000\\testData1-200-4layers-210.csv')
+    example = OneModelAnalysis(file='TestResult5000\\testData2-200-2layers-116.csv')
     example.Analyse(metric_name='SwiErr')
     example.plot_box(save=True)
     # example.swi_correlation()
