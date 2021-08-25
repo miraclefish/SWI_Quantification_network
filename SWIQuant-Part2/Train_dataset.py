@@ -23,15 +23,15 @@ class Dataset_train(Dataset):
     def __getitem__(self, idx):
         file = self.filelist[idx]
         raw_data = pd.read_csv(file, sep='\t', index_col=0)
-        Data = raw_data['Data'].values
+        Data = raw_data['Data'].values.reshape(1,-1)
         Label = raw_data['label'].values
         data = torch.from_numpy(Data)
         label = torch.from_numpy(Label)
         sample = {"Data":data, "label":label}
-        Score = raw_data['score'].values.reshape(-1,1)
+        Score = raw_data['score'].values.reshape(-1, 1)
         Score = np.log1p(np.abs(Score))/np.log(np.max(Score))
-        Score = self.dilate(Score, kernel=31)
-        score = torch.from_numpy(Score)
+        # Score = self.dilate(Score, kernel=31)
+        score = torch.from_numpy(Score.reshape(1,-1))
         sample['score'] = score
         return sample
 

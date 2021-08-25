@@ -1,7 +1,5 @@
 import os
-import numpy as np
 import torch
-from torch.optim import optimizer
 
 from SignalSegNet import SignalSegNet, Basicblock
 from Train_dataset import Dataset_train
@@ -9,7 +7,6 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torch import nn
 from torch import optim
-from Segtest import test
 
 
 class ModelTrainer(object):
@@ -18,20 +15,18 @@ class ModelTrainer(object):
         self.Net = Net
         self.mode_flag = {'U-net':'U', 'Score': 'S', 'Att': 'A', 'Score+Att': 'S+A'}
         self.model_root = model_root
-        self.model_save_path = os.path.join(model_root, "M-"+str(self.Net.layer_num)+"-layers-"+self.mode_flag[self.Net.mode])
+        self.model_save_path = os.path.join(model_root, "M-"+str(self.Net.layers_num)+"-layers-"+self.mode_flag[self.Net.mode])
         self.lr = lr
-        self.batch_szie = batch_size
+        self.batch_size = batch_size
         self.n_epoch = n_epoch
         self.input_size = input_size
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.Net_mode = Net.mode
 
-    def load_data(self, with_score=False):
+    def load_data(self):
         
-        if self.Net.mode in ['Score', 'Score+Att']:
-            with_score = True
-        dataset_train = Dataset_train(DataPath="Seg5data", type='Train', input_size=self.input_size, with_score=with_score)
-        dataset_test = Dataset_train(DataPath="Seg5data", type='Test', input_size=self.input_size, with_score=with_score)
+        dataset_train = Dataset_train(DataPath="Seg5data", type='Train', input_size=self.input_size)
+        dataset_test = Dataset_train(DataPath="Seg5data", type='Test', input_size=self.input_size)
         dataloader_train = DataLoader(dataset=dataset_train, batch_size=self.batch_size, shuffle=True)
         dataloader_test = DataLoader(dataset=dataset_test, batch_size=self.batch_size, shuffle=False)
 
@@ -40,7 +35,12 @@ class ModelTrainer(object):
     def train(self, RESUME=False, s_epoch=-1):
 
         writer = SummaryWriter('./log/'+self.model_save_path)
+        if not os.path.isdir(self.model_save_path):
+            os.makedirs(self.model_save_path)
 
+        print('---------------------------------------------------------')
+        print("[             Model-{}-layers-mode-{}           ]".format(self.Net.layers_num, self.Net.mode))
+        print()
         optimizer = optim.Adam(self.Net.parameters(), lr=self.lr, weight_decay=0.01)
         scheduler = optim.lr_scheduler.StepLR(optimizer, 15, 0.9)
         loss = nn.CrossEntropyLoss()
@@ -57,8 +57,8 @@ class ModelTrainer(object):
             s_epoch = checkpoint['epoch']
 
         dataloader_train, dataloader_test = self.load_data()
-        dataloader_train = list(dataloader_train)
-        dataloader_test = list(dataloader_test)
+        # dataloader_train = list(dataloader_train)
+        # dataloader_test = list(dataloader_test)
 
                 
         for epoch in range(s_epoch+1, self.n_epoch):
@@ -70,7 +70,7 @@ class ModelTrainer(object):
 
                 x_data = data_train['Data'].float()
                 label = data_train['label'].long()
-                score = data_train['Score'].float()
+                score = data_train['score'].float()
                 
                 self.Net.zero_grad()
 
@@ -99,8 +99,7 @@ class ModelTrainer(object):
                     'optimizer': optimizer.state_dict(),
                     "epoch": epoch,
                 }
-            if not os.path.isdir(self.model_save_path):
-                os.mkdir(self.model_save_path)
+
             if epoch % 2 == 0:
                 torch.save(checkpoint,'{0}/model_epoch_{1}.pth.tar'.format(self.model_save_path, epoch))
                 print("Save {0} epoch model in Path [{1}/model_epoch_{2}.pth.tar]".format(epoch, self.model_save_path, epoch))
@@ -120,7 +119,7 @@ class ModelTrainer(object):
             for data in dataloader:
                 
                 x, label = data['Data'].float(), data['label'].long()
-                score = data['Score'].float()
+                score = data['score'].float()
 
                 x = x.to(self.device)
                 label = label.to(self.device)
@@ -135,8 +134,11 @@ class ModelTrainer(object):
 
 if __name__ == '__main__':
 
-    Net = SignalSegNet(Basicblock, layers=[2,2], mode='Score')
-    modeltrainer = ModelTrainer(Net, 'model_5000', n_epoch=500)
-    modeltrainer.train()
-
+    for mode in ['Score']:
+        for i in range(2,4):
+            layers = [2 for k in range(i)]
+            Net = SignalSegNet(Basicblock, layers=layers, mode=mode)
+            modeltrainer = ModelTrainer(Net, 'model_5000', n_epoch=500, batch_size=256)
+            modeltrainer.train()
+        pass
     pass

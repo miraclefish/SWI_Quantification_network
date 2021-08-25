@@ -154,13 +154,10 @@ class SignalSegNet(nn.Module):
             self.decoders.append(Decoder_block(self.dim_pra*2**(i-1), self.dim_pra*2**(i-2), mode=self.mode))
 
         if self.mode in ['Score', 'Score+Att']:
-            self.score_head = nn.Sequential(nn.Conv1d(1, self.dim_pra, kernel_size=7, stride=3, padding=4, bias=False),
-                                nn.BatchNorm1d(self.dim_pra),
-                                nn.Sigmoid(),
-                                nn.MaxPool1d(kernel_size=3, padding=1, stride=2))
+            self.score_head = nn.MaxPool1d(kernel_size=31, padding=15, stride=6)
             self.score_downs = nn.ModuleList()
             for i in range(self.layers_num-1):
-                self.score_downs.append(ScoreBlock(self.dim_pra*2**i, self.dim_pra*2**(i+1), 2))
+                self.score_downs.append(nn.MaxPool1d(5, 2, 2))
 
         self.unsample_conv = nn.ConvTranspose1d(self.dim_pra, int(self.dim_pra/2), kernel_size=7, stride=3, padding=4, bias=False)
         self.conv_final = conv1x1(int(self.dim_pra/2), 2)
@@ -261,7 +258,8 @@ class ScoreBlock(nn.Module):
         
 
 if __name__ == "__main__":
-    net = SignalSegNet(Basicblock, [2,2,2,2,2], mode='U-net')
+    net = SignalSegNet(Basicblock, [2,2,2,2,2], mode='Score')
+
     input = torch.randn([3,1,5000])
     s = torch.randn([3,1,5000])
     output = net(x=input, score=s)
