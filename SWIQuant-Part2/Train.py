@@ -57,8 +57,8 @@ class ModelTrainer(object):
             s_epoch = checkpoint['epoch']
 
         dataloader_train, dataloader_test = self.load_data()
-        # dataloader_train = list(dataloader_train)
-        # dataloader_test = list(dataloader_test)
+        dataloader_train = list(dataloader_train)
+        dataloader_test = list(dataloader_test)
 
                 
         for epoch in range(s_epoch+1, self.n_epoch):
