@@ -15,7 +15,7 @@ class ModelTrainer(object):
         self.Net = Net
         self.mode_flag = {'U-net':'U', 'Score': 'S', 'Att': 'A', 'Score+Att': 'S+A'}
         self.model_root = model_root
-        self.model_save_path = os.path.join(model_root+str(input_size), "M-"+str(self.Net.layers_num)+"-layers-"+self.mode_flag[self.Net.mode])
+        self.model_save_path = os.path.join(model_root, "M-"+str(self.Net.layers_num)+"-layers-"+self.mode_flag[self.Net.mode]+"-"+str(input_size))
         self.lr = lr
         self.batch_size = batch_size
         self.n_epoch = n_epoch
@@ -39,7 +39,7 @@ class ModelTrainer(object):
             os.makedirs(self.model_save_path)
 
         print('---------------------------------------------------------')
-        print("[             Model-{}-layers-mode-{}           ]".format(self.Net.layers_num, self.Net.mode))
+        print("[             Model-{}-layers-mode-{}-{}           ]".format(self.Net.layers_num, self.Net.mode, self.input_size))
         print()
         optimizer = optim.Adam(self.Net.parameters(), lr=self.lr, weight_decay=0.01)
         scheduler = optim.lr_scheduler.StepLR(optimizer, 15, 0.9)
@@ -60,7 +60,6 @@ class ModelTrainer(object):
         dataloader_train = list(dataloader_train)
         dataloader_test = list(dataloader_test)
 
-                
         for epoch in range(s_epoch+1, self.n_epoch):
 
             loss_all = 0
@@ -108,7 +107,6 @@ class ModelTrainer(object):
                 writer.close()
         return None
 
-
     def test(self, dataloader):
         with torch.no_grad():
             self.Net.eval()
@@ -134,11 +132,10 @@ class ModelTrainer(object):
 
 if __name__ == '__main__':
 
-    for mode in ['Score']:
-        for i in range(2,4):
-            layers = [2 for k in range(i)]
-            Net = SignalSegNet(Basicblock, layers=layers, mode=mode)
-            modeltrainer = ModelTrainer(Net, 'model_5000', n_epoch=500, batch_size=256)
-            modeltrainer.train()
+    for input_size in [500, 1000, 2500, 5000, 10000, 15000, 20000, 25000, 30000]:
+        layers = 4
+        Net = SignalSegNet(Basicblock, layers=layers, mode='U-net')
+        modeltrainer = ModelTrainer(Net, 'model', n_epoch=500, batch_size=256, input_size=input_size)
+        modeltrainer.train()
         pass
     pass
