@@ -15,7 +15,7 @@ class ModelTrainer(object):
         self.Net = Net
         self.mode_flag = {'U-net':'U', 'Score': 'S', 'Att': 'A', 'Score+Att': 'S+A'}
         self.model_root = model_root
-        self.model_save_path = os.path.join(model_root, "M-"+str(self.Net.layers_num)+"-layers-"+self.mode_flag[self.Net.mode])
+        self.model_save_path = os.path.join(model_root+str(input_size), "M-"+str(self.Net.layers_num)+"-layers-"+self.mode_flag[self.Net.mode])
         self.lr = lr
         self.batch_size = batch_size
         self.n_epoch = n_epoch

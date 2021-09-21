@@ -4,12 +4,18 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import seaborn as sns
 
 from SignalSegNet import SignalSegNet, Basicblock
 from torch.utils.data import DataLoader
 from Dataset_test import Dataset_test
 from utils import adjust_window, label2Spair, pair2label
 from PrelabelEvalu import evalu
+
+import matplotlib as mpl
+mpl.rcParams['font.sans-serif'] = ['Microsoft YaHei']
+
+os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
 class ModelEvalu(object):
 
@@ -82,6 +88,56 @@ class ModelEvalu(object):
             result = result.round(2)
             result.to_csv(resultFileName, sep=',', encoding='ANSI', index=0)
         return None
+
+    def test_hyper(self, path):
+        
+        filelist = os.listdir(path)
+
+        Ious = np.linspace(0.1, 0.9, 9)
+        lmins = np.linspace(0, 500, 11)
+
+        Sens = np.zeros((len(Ious), len(lmins)))
+        Prec = np.zeros((len(Ious), len(lmins)))
+        Fp_min = np.zeros((len(Ious), len(lmins)))
+        Err = np.zeros((len(Ious), len(lmins)))
+
+        Labels = []
+        Preds = []
+        with tqdm(total=len(filelist)) as pbar:
+
+            pbar.set_description('Testing {}:'.format(path))
+            for file in filelist:
+
+                file_path = os.path.join(path, file)
+                data, label, pred = self.test_one(file_path)
+                Labels.append(label)
+                Preds.append(pred)
+
+                pbar.update(1)
+        
+        for i, iou in enumerate(Ious):
+            for j, lmin in enumerate(lmins):
+                for k in range(len(filelist)):
+                    label, pred = Labels[k], Preds[k]
+                    s_pair = label2Spair(pred)
+                    pred_new = pair2label(s_pair, len(label), lmin)
+                    sens, pre, fp_min= evalu(label=label, pred=pred_new, iou_th=iou)
+                    swi00 = np.mean(label)*100
+                    swipp = np.mean(pred_new)*100
+                    Err[i,j] = abs(swipp-swi00)
+                    Sens[i,j] = sens
+                    Prec[i,j] = pre
+                    Fp_min[i,j] = fp_min
+                print("No.{}:  iou={}; lmin={}; Finished\n".format(i*j, iou, lmin))
+
+        items = ['Sensitivity', 'Precision', 'False positive rate', 'SWI error']
+        Results = {}
+        for result, item in zip([Sens, Prec, Fp_min, Err], items):
+            Results[item] = result
+
+        np.save('Hyper_Results.npy', Results)
+        
+        return Results
 
     def results_initial(self, path):
         resultFile = 'TestResult'+str(self.input_size)+'\\'+os.path.split(path)[1]+'-'+str(self.input_size)+'-'
@@ -186,17 +242,63 @@ class ModelEvalu(object):
             plt.show()
         return None
 
+    def plot_hyper(self, Results=None):
+
+        if Results is None:
+            Results = np.load('Hyper_Results.npy', allow_pickle=True).item()
+
+        F_score = 2 * Results['Sensitivity'] * Results['Precision'] / (Results['Sensitivity'] + Results['Precision'])
+        Results['F1_score'] = F_score
+        fig, axes = plt.subplots(1,3,figsize=[16,6])
+        cmap = "GnBu"
+
+        for item, id in zip(['F1_score', 'False positive rate', 'SWI error'], np.arange(3)):
+
+            result = Results[item]
+            # result = F_score
+            ax = axes[id]
+            # ax.set_yticks([])
+            if item == 'F1_score':
+                sns.heatmap(result, annot=True, fmt='.2f', linewidths=0.5, ax=ax, cmap=cmap, vmax=1, vmin=0)
+                ax.set_title(item)
+            elif item == 'False positive rate':
+                sns.heatmap(result, annot=True, fmt='.1f', linewidths=0.5, ax=ax, cmap=cmap, vmin=0, vmax=30)
+                ax.set_title(r'False positive rate ($min^{-1}$)')
+            elif item == 'SWI error':
+                sns.heatmap(result, annot=True, fmt='.1f', linewidths=0.5, ax=ax, cmap=cmap, vmin=0, vmax=100)
+                ax.set_title(r'{} ($\%$)'.format(item))
+            # ax.set_xticks(np.arange(11))
+            # ax.set_yticks(np.arange(9))
+            ax.set_xticklabels(np.arange(0,501,50))
+            ax.set_yticklabels(np.round(np.linspace(0.1,0.9,9),1))
+            
+
+        
+        plt.tight_layout()
+        # plt.savefig(os.path.join('PlotFig', 'Robustness.png'), dpi=500, bbox_inches='tight')
+        
+        plt.show()
+        # plt.close()
+        return None
+
+        
 
 if __name__ == "__main__":
 
-    for epoch in [340]:
-        model_eval = ModelEvalu(layers_num=5, input_size=5000, epoch=epoch, model_root='model_5000', mode='Att')
-        # model_eval.results_initial(path='Seg5data\\testData1')
-        # model_eval.results_initial(path='Seg5data\\testData2')
+    epoch = 280
+    model_eval = ModelEvalu(layers_num=4, input_size=5000, epoch=epoch, model_root='model_5000', mode='U-net')
+    # Results = model_eval.test_hyper(path='Seg5data\\testData2')
+    model_eval.plot_hyper()
+
+
+    # for epoch in [340]:
+    #     model_eval = ModelEvalu(layers_num=5, input_size=5000, epoch=epoch, model_root='model_5000', mode='Att')
+    #     # model_eval.results_initial(path='Seg5data\\testData1')
+    #     # model_eval.results_initial(path='Seg5data\\testData2')
         
-        model_eval.test_all(path='Seg5data\\testData1')
-        model_eval.test_all(path='Seg5data\\testData2')
-        # model_eval.plot(file_path='           Seg5data\\testData1\\01-刘晓逸-3.txt')
-        # model_eval.plot(file_path='Seg5data\\testD2802\\04-李梓萱-1.txt')
+    #     model_eval.test_all(path='Seg5data\\testData1')
+    #     model_eval.test_all(path='Seg5data\\testData2')
+    #     # model_eval.plot(file_path='           Seg5data\\testData1\\01-刘晓逸-3.txt')
+    #     # model_eval.plot(file_path='Seg5data\\testD2802\\04-李梓萱-1.txt')
 
     pass

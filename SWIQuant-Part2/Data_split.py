@@ -86,8 +86,8 @@ class Dataset_train(Dataset):
 
 if __name__ == "__main__":
 
-    data_train = Dataset_train(DataPath="Seg5data\\trainData", type="Train", input_size=5000, stride=2500)
-    data_test = Dataset_train(DataPath="Seg5data\\testData1", type="Test", input_size=5000, stride=2500)
+    data_train = Dataset_train(DataPath="Seg5data\\trainData", type="Train", input_size=1000, stride=500)
+    data_test = Dataset_train(DataPath="Seg5data\\testData1", type="Test", input_size=1000, stride=500)
     with tqdm(total=len(data_train)) as pbar:
         pbar.set_description("Split training set:")
         for i in range(len(data_train)):

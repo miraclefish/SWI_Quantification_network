@@ -2,7 +2,8 @@ import os
 
 import numpy as np
 import pandas as pd
-from scipy.signal import butter, filtfilt
+from scipy.signal import butter, filtfilt, stft
+import pywt
 import matplotlib.pyplot as plt
 
 class SWIquantify(object):
@@ -28,7 +29,7 @@ class SWIquantify(object):
         self.band_pair = None
         self.mask = None
 
-    def fix_threshold(self):
+    def fix_threshold(self, D=0):
         self.score = self.Adaptive_Decomposition()
 
         swi = []
@@ -47,10 +48,16 @@ class SWIquantify(object):
             swi.append(SWI)
 
         swi = np.array(swi)
-        err = np.abs(swi-self.swi_label)
+        if D==0:
+            swi_label = self.swi_label
+        else:
+            swi_label = self.swi_label + D/100
+        swi_label = np.max(swi_label, 0)
+        
+        err = np.abs(swi-swi_label)
         ind = np.argmin(err)
         min_err = err[ind]
-        print("The Optimal threshold index: ", str(ind), " [", str(thresholds[ind]),"]\n")
+        print("The Optimal threshold index: ", str(ind), " [", str(thresholds[ind]),"] with Deviation ", D, "\%\n")
         optimal_th = thresholds[ind]
 
         return optimal_th, min_err
@@ -152,6 +159,20 @@ class SWIquantify(object):
         score = np.sum(data_windowed*wave, axis=1)/data_windowed.shape[1]**2
         return score
 
+    def _AWED_for_plot(self):
+
+        # 保证滑窗滤波后信号长度与原信号长度相同，进行Padding操作
+        pad_width = ((int((self.Spike_width-1)/2),int(np.ceil((self.Spike_width-1)/2))), (0,0))
+        x_pad = np.pad(self.bandPassData, pad_width=pad_width, mode='constant', constant_values=0)
+
+        # 对 data 滑窗的过程矩阵并行化，详情请参考函数 self._window_slide()
+        # data_windowed 的每一行是一个 data 的滑窗提取，步长为 1
+        data_windowed = self._window_slide(x_pad, self.Spike_width)
+        wave = self._Adaptive_wave(Original_wave=self.wavelet, data=data_windowed)
+
+        score = np.sum(data_windowed*wave, axis=1)/data_windowed.shape[1]**2
+        return score, data_windowed, wave
+
     def _get_wave(self, p=2):
         x = np.linspace(0.5,2,self.Spike_width)
         wave = np.exp(-1/(x**p)-x**p)
@@ -226,7 +247,7 @@ class SWIquantify(object):
 
         for i in range(N):
             ax = fig.add_subplot(N, 1, i+1)
-            ax.plot(np.arange(start, end)/1000, data[start:end])
+            ax.plot(np.arange(start, end)/1000, data[start:end], c='black', linewidth=1.5)
             ax.set_ylim([y_lim_min-ranges*0.1, y_lim_max+ranges*0.1])
             
             if i > 0:
@@ -263,7 +284,7 @@ class SWIquantify(object):
         if save_fig:
             swi_label = np.mean(label[start:end])*100
             swi_pred = np.mean(pred[start:end])*100
-            path = os.path.join('Pre5Fig', "{}-{:.2f}-{:.2f}-{}".format(self.filename[:-4], swi_label, swi_pred, '.png'))
+            path = os.path.join('PlotFig', "{}-{:.2f}-{:.2f}-{}".format(self.filename[:-4], swi_label, swi_pred, '.png'))
             plt.savefig(path, dpi=500, bbox_inches='tight')
             plt.close(fig)
         else:
@@ -289,7 +310,7 @@ class SWIquantify(object):
         time = int(time*1000)
         length = int(length*1000)
         start = time
-        end = time + length - 1
+        end = time + length
 
         if start < 0:
             start = 0
@@ -301,13 +322,323 @@ class SWIquantify(object):
 
         return start, end
 
+    def plot_stfft(self, time, length, vmin=0, vmax=10):
+        data = self.data
+        L = data.shape[0]
+        start, end = self._adjust_window(time, length, L)
+        data = data[start:end]
+        f, t, nd = stft(data, fs=1000, window='hann', nperseg=200, noverlap=50)
+        nd = np.abs(nd)
+
+        fig = plt.figure(figsize=[8,8])
+        plt.subplot(2,1,1)
+        plt.plot(data)
+        plt.xlim(0,5000)
+        plt.subplot(2,1,2)
+        plt.pcolormesh(t,f[:21],nd[:21,:],vmin=vmin,vmax=vmax)
+        # plt.colorbar()
+        plt.show()
+
+    def plot_dwt(self, time, length, level=4, save_fig=False):
+        data = self.data
+        L = data.shape[0]
+        start, end = self._adjust_window(time, length, L)
+        data = data[start:end]
+        data = data[::6]
+
+        wavelet='sym5' #选取的小波基函数
+        X = range(len(data))
+        wave =pywt.wavedec(data, wavelet, level=level)
+        #小波重构
+        ya = None
+        yds = []
+        for i in range(level+1):
+            one_hot_list = [0]*(level+1)
+            one_hot_list[i] = 1
+            if i == 0:
+                ya = pywt.waverec(np.multiply(wave, one_hot_list).tolist(),wavelet)#第level层近似分量
+            else:
+                yd = pywt.waverec(np.multiply(wave, one_hot_list).tolist(), wavelet)
+                yds.append(yd)
+
+        fig = plt.figure(figsize=(8, 8))
+        num_fig = level+2
+        ax = plt.subplot(num_fig, 1, 1)
+        plt.plot(X, data, c='black', label='Original EEG Signal')
+        plt.legend(bbox_to_anchor=(0.55, 0.8))
+        kk = [ax.spines[key].set_visible(False) for key in ax.spines.keys() if key is not 'left']
+        ax.set_xticks([])
+        ax.set_xlim([0, len(X)])
+        ax.set_ylim([-np.max(np.abs(data))-15, np.max(np.abs(data))+15])
+        ax.set_facecolor('none')
+        # plt.title('Original EEG Signal', fontsize=12)
+
+        pads = [4,4,4,3,2]
+        color = ['#1BADD9', '#1584B7', '#0F5A94', '#08316F', '#01074C']
+        for i in range(num_fig-1):
+            ax = plt.subplot(num_fig, 1, i+2)
+            if i == 0:
+                plt.plot(X, ya, c=color[i])
+                # X_c = np.arange(2**(4-i)/2, len(data), 2**(4-i))
+                # w_c = wave[i][pads[i]:-pads[i]]
+                # plt.plot(X_c, w_c)
+                ax.set_yticks([0])
+                ax.set_yticklabels(['A{}'.format(4-i)], rotation=0, fontsize=12)
+            else:
+                plt.plot(X, yds[i-1], c=color[i])
+                # X_c = np.arange(2**(5-i)/2, len(data), 2**(5-i))
+                # w_c = wave[i][pads[i]:-pads[i]]
+                # plt.plot(X_c, w_c)
+                ax.set_yticks([0])
+                ax.set_yticklabels(['D{}'.format(5-i)], rotation=0, fontsize=12)
+            kk = [ax.spines[key].set_visible(False) for key in ax.spines.keys() if key is not 'left']
+            ax.set_xticks([])
+            ax.set_xlim([0, len(X)])
+            ax.set_facecolor('none')
+        plt.tight_layout()
+        if save_fig:
+            path = os.path.join('PlotFig', "{}-({}-{})-dwt.png".format(self.filename[:-4], time, time+length))
+            plt.savefig(path, dpi=500, bbox_inches='tight')
+            plt.close(fig)
+        else:
+            plt.show()
+        return None
+
+    def plot_process(self, time, length, num_prc, n=3, save_fig=False):
+        
+        data = self.data
+        L = data.shape[0]
+        start, end = self._adjust_window(time, length, L)
+        data = data[start:end]
+        X = range(len(data))
+
+        score, data_windowed, wave = self._AWED_for_plot()
+        score = score[start:end]
+        data_windowed = data_windowed[start:end, :]
+        wave = wave[start:end, :]
+
+        interval = int((len(data)-n*num_prc*76)/(n*num_prc+1))
+
+        fig = plt.figure(figsize=(8, 8))
+        num_fig = num_prc+2
+        ax = plt.subplot(num_fig, 1, 1)
+        plt.plot(X, data, c='black', label='Original EEG Signal')
+        plt.legend(bbox_to_anchor=(0.55, 0.8))
+        kk = [ax.spines[key].set_visible(False) for key in ax.spines.keys() if key is not 'left']
+        ax.set_xticks([])
+        ax.set_xlim([0, len(X)])
+        ax.set_ylim([-np.max(np.abs(data))-15, np.max(np.abs(data))+15])
+        ax.set_facecolor('none')
+        # plt.title('Original EEG Signal', fontsize=12)
+
+        ax_score = plt.subplot(num_fig, 1, num_fig)
+        ax_score.plot(X, score, c='b', label='Result of AWED', zorder=1)
+        X_marker, score_marker = X[interval+int(self.Spike_width/2):], score[interval+int(self.Spike_width/2):]
+        ax_score.scatter(X_marker[::interval+self.Spike_width], score_marker[::interval+self.Spike_width], c='r', s=12, label='Frame Sample', zorder=2)
+        kk = [ax_score.spines[key].set_visible(False) for key in ax_score.spines.keys() if key not in ['left', 'bottom']]
+        plt.legend(bbox_to_anchor=(0.85, 0.25))
+        ax_score.spines['bottom'].set_position(('data', 0))
+        ax_score.set_xticks([])
+        ax_score.set_xlim([0, len(X)])
+        ax_score.set_facecolor('none')
+
+        for i in range(num_prc):
+            ax = plt.subplot(num_fig, 1, i+2)
+            for j in range(n):
+                left_ind = (interval + self.Spike_width)*(i*n+j) + interval
+                right_ind = left_ind + self.Spike_width
+                ind = int((left_ind + right_ind)/2)
+                plt.plot(X[left_ind:right_ind], data_windowed[ind,:], c='black', linewidth=2, label='Local Averaged EEG Signal')
+                plt.plot(X[left_ind:right_ind], wave[ind,:], c='r', linewidth=1.5, label='Adaptive Wavelet')
+                if j == 0 and i==0:
+                    plt.legend()
+            kk = [ax.spines[key].set_visible(False) for key in ax.spines.keys() if key not in ['left', 'bottom']]
+            ax.spines['bottom'].set_position(('data', 0))
+            ax.set_xticks([])
+            ax.set_xlim([0, len(X)])
+            ax.set_ylim([-np.max(np.abs(data))-15, np.max(np.abs(data))+15])
+            ax.set_facecolor('none')
+
+        plt.tight_layout()
+        if save_fig:
+            path = os.path.join('PlotFig', "{}-({}-{})-AWED.png".format(self.filename[:-4], time, time+length))
+            plt.savefig(path, dpi=500, bbox_inches='tight')
+            plt.close(fig)
+        else:
+            plt.show()
+        return None
+
+    def plot_structure(self, time, length, k1, k2, save_fig=False):
+        
+        data_all= self.data
+        L = data_all.shape[0]
+        start, end = self._adjust_window(time, length, L)
+        data = data_all[start:end]
+        X = range(start, end)
+
+        score_all, data_windowed, wave = self._AWED_for_plot()
+        peak_ind, peak_score = self.get_peak_score(score_all)
+        spike_ind, spike_score = self.bect_discrimination(score_all, k1)
+        band_ind = self.band_ind_expand(spike_ind)
+        band_pair = self.find_slow_wave(band_ind=band_ind)
+        SWI, label = self.get_SWI(band_pair)
+        score = score_all[start:end]
+        th1 = np.std(peak_score)*k1+np.mean(peak_score)
+        th2 = np.std(peak_score)*k2+np.mean(peak_score)
+        spike_ind = [ind for ind in self.spike_point if ind >= start and ind <= end]
+        
+        log_spike_ind = peak_ind[np.where(peak_score>th1)[0]]
+        log_spike_score = peak_score[np.where(peak_score>th1)[0]]
+
+        peak_ind, peak_score = peak_ind[np.where(peak_ind>=start)[0]], peak_score[np.where(peak_ind>=start)[0]]
+        peak_ind, peak_score = peak_ind[np.where(peak_ind<end)[0]], peak_score[np.where(peak_ind<end)[0]]
+
+        num_fig = 6
+        place = 0
+        fig = plt.figure(figsize=(8, 8))
+
+        '''Plot Original Data'''
+        ax_data = plt.subplot(num_fig, 1, 1)
+        ax_data.plot(X, data, c='black', label=r'$f(t)$')
+        plt.legend(loc=1)
+        kk = [ax_data.spines[key].set_visible(False) for key in ax_data.spines.keys() if key not in ['left']]
+        ax_data.set_xticks([])
+        # ax_data.set_yticks([])
+        ax_data.set_xlim([start, end+place])
+        # ax_data.set_ylim([-np.max(np.abs(data))-15, np.max(np.abs(data))+15])
+
+        '''Plot AWED result'''
+        ax_score = plt.subplot(num_fig, 1, 2)
+        ax_score.plot(X, score, c='b', label=r'$S(t)$', zorder=1)
+        kk = [ax_score.spines[key].set_visible(False) for key in ax_score.spines.keys() if key not in ['bottom', 'left']]
+        # plt.legend(bbox_to_anchor=(0.85, 0.25))
+        ax_score.spines['bottom'].set_position(('data', 0))
+        ax_score.set_xticks([])
+        # ax_score.set_yticks([])
+        ax_score.set_xlim([start, end+place])
+        plt.legend(loc=1)
+
+        '''Plot peak_score of decomposed Data'''
+        ax_pp = plt.subplot(num_fig, 1, 3)
+        ax_pp.plot(X, score, linestyle='dashed', c='b', zorder=1)
+        score_pp = score_all[list(peak_ind)]
+        self.plot_hist(score_pp, height=10, save_fig=True)
+        ax_pp.scatter(peak_ind, score_pp, c='r', s=10, zorder=2, label=r'$\mathbf{P}=\{p_j\}$')
+        kk = [ax_pp.spines[key].set_visible(False) for key in ax_pp.spines.keys() if key not in ['bottom', 'left']]
+        plt.legend(loc=1)
+        ax_pp.spines['bottom'].set_position(('data', 0))
+        ax_pp.set_xticks([])
+        ax_pp.set_xlim([start, end+place])
+
+        '''Plot log peak_score of decomposed Data'''
+        ax_logpp = plt.subplot(num_fig, 1, 4)
+        ax_logpp.plot(X, np.sign(score)*np.log(np.abs(score)+1), linestyle='dashed', c='gray', zorder=1)
+        self.plot_hist(peak_score, height=0.3, th=th1, save_fig=True)
+        ax_logpp.scatter(peak_ind, peak_score, c='r', s=10, zorder=2)
+        ax_logpp.hlines(th1, xmin=start, xmax=end, color='g', label=r'$k\sigma_{\mathbf{P}}+\overline{\mathbf{P}}$')
+        ax_logpp.scatter(log_spike_ind, log_spike_score+0.8, c='maroon', marker='v', s = 6**2, label=r'$\mathbf{S}=\{s_i\}$')
+        kk = [ax_logpp.spines[key].set_visible(False) for key in ax_logpp.spines.keys() if key not in ['bottom', 'left']]
+        plt.legend(bbox_to_anchor=(0.85,0.6), labelspacing=0)
+        ax_logpp.spines['bottom'].set_position(('data', 0))
+        ax_logpp.set_xticks([])
+        ax_logpp.set_xlim([start, end+place])
+
+        '''Plot Spike points of Original Data'''
+        ax_spike = plt.subplot(num_fig, 1, 5)
+        ax_spike.plot(X, data, c='black', zorder=1)
+        ax_spike.scatter(spike_ind, data_all[spike_ind]+25, c='maroon', marker='v', s = 6**2)
+        kk = [ax_spike.spines[key].set_visible(False) for key in ax_spike.spines.keys() if key not in ['left']]
+        # plt.legend(bbox_to_anchor=(0.85, 0.25))
+        ax_spike.set_xticks([])
+        ax_spike.set_xlim([start, end+place])
+        ax_spike.set_ylim([np.min(data)-120, np.max(data)+40])
+
+        '''Plot SSW of Original Data'''
+        ax_spike = plt.subplot(num_fig, 1, 6)
+        ax_spike.plot(X, data, c='black', zorder=1)
+        ax_spike.scatter(spike_ind, data_all[spike_ind]+25, c='maroon', marker='v', s=6**2)
+        kk = [ax_spike.spines[key].set_visible(False) for key in ax_spike.spines.keys() if key not in ['left']]
+
+        s_pair_pred = self._label2Spair(label=label, start=0)
+        onsets = s_pair_pred[:,0]
+        offsets = s_pair_pred[:,1]
+
+        line_label = True
+        for s_pair in s_pair_pred:
+            if line_label:
+                ax_spike.plot(np.arange(s_pair[0], s_pair[1]), data_all[s_pair[0]:s_pair[1]], c='r', label=r'$f(d_{i\cdot s}:d_{i\cdot e})$')
+                line_label = False
+            else:
+                ax_spike.plot(np.arange(s_pair[0], s_pair[1]), data_all[s_pair[0]:s_pair[1]], c='r')
+
+        if len(onsets) != 0:
+            ax_spike.scatter(onsets, data_all[onsets], c='limegreen', marker='>', s=6**2, label=r'$d_{i\cdot s}$')
+            ax_spike.scatter(offsets, data_all[offsets], c='black', marker='s', s=6**2, label=r'$d_{i\cdot e}$')
+        ax_spike.set_xticks([])
+        ax_spike.set_xlim([start, end+place])
+        ax_spike.set_ylim([np.min(data)-120, np.max(data)+40])
+        plt.legend(loc=3, ncol=3)
+
+
+
+        plt.tight_layout()
+        if save_fig:
+            path = os.path.join('PlotFig', "{}-({}-{})-Prelabel.png".format(self.filename[:-4], time, time+length))
+            plt.savefig(path, dpi=500, bbox_inches='tight')
+            plt.close(fig)
+        else:
+            plt.show()
+
+        return None
+
+    def plot_hist(self, data, height, th=None, save_fig=False):
+
+        num_bins = 25
+        hist, bins = np.histogram(data, bins=num_bins)
+        y = [(bins[i]+bins[i+1])/2 for i, _ in enumerate(bins[:-1])]
+        if th is None:
+            mode = 'pp'
+            colors = ['r']*num_bins
+        else:
+            mode = 'logpp'
+            colors_r = ['r' for bin in y if bin <= th]
+            colors_m = ['maroon' for bin in y if bin > th]
+            colors = colors_r + colors_m
+
+        fig1 = plt.figure(figsize=[4,8])
+        ax = plt.subplot()
+        ax.barh(y, hist, height=height, color=colors)
+        if th is not None:
+            ax.hlines(th, color='g', xmin=0, xmax=np.max(hist), linewidth=8)
+        kk = [ax.spines[key].set_visible(False) for key in ax.spines.keys() if key not in ['left']]
+        ax.spines['left'].set_linewidth(5)
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+        # ax.invert_xaxis()
+
+        if save_fig:
+            path = os.path.join('PlotFig', "{}-({}-{})-{}.png".format(self.filename[:-4], time, time+length, mode))
+            plt.savefig(path, dpi=500, bbox_inches='tight')
+            plt.close(fig1)
+        else:
+            plt.show()
+
+        return None
 
 if __name__ == "__main__":
 
-    dataPath = "Pre5data\Data\ZZX-clip1.txt"
+    dataPath = "C:\\Users\\yyy96\\Documents\\VScodework\\SWI_Quantification_network\\SWIQuant-Part2\\Seg5data\\tData\\01-刘晓逸-1.txt"
     SwiQ = SWIquantify(filepath=dataPath, Spike_width=76, print_log=True)
-    th, min_err = SwiQ.fix_threshold()
-    swi = SwiQ.get_optimal_result(th)
-    label_pred = SwiQ.mask.reshape(-1,1)
-    SwiQ.plot_demo(time=0, length=10, pred=label_pred, save_fig=True)
+    # th, min_err = SwiQ.fix_threshold()
+    # swi = SwiQ.get_optimal_result(th)
+    # label_pred = SwiQ.mask.reshape(-1,1)
+    # SwiQ.plot_demo(time=0, length=10, pred=label_pred, save_fig=False)
+    # SwiQ.plot_stfft(time=0, length=5)
+    time = 30
+    length = 5
+    # SwiQ.plot_dwt(time=time, length=length, save_fig=True)
+    # SwiQ.plot_process(time=time, length=length, num_prc=4, n=9, save_fig=True)
+    SwiQ.plot_structure(time=time, length=length, k1=0.6, k2=3, save_fig=True)
+
     pass

@@ -55,11 +55,11 @@ class OneModelAnalysis(object):
         col_choice = {'Sens': ['S1', 'S2', 'Sens'],
                       'Pre': ['P1', 'P2', 'Prec'],
                       'Fp_min': ['Fp1', 'Fp2', 'Fp_min'],
-                      'SwiErr': ['Err1', 'Err2', 'Err'],
+                      'SwiErr': ['Err1', 'Err2', 'Err-4'],
                       'Derr': ['Derr1', 'Derr2', 'Derr']}
         self.col_name = col_choice[self.metric_name]
         self.results = self.Results[self.col_name]
-        self.results.columns = ['Expert B', 'Expert C', 'SQNN']
+        self.results.columns = ['Expert B', 'Expert C', 'SQNN-4']
         return self.results.mean().round(2), self.results.std().round(2)
 
     def plot_box(self, save=False):
@@ -68,7 +68,7 @@ class OneModelAnalysis(object):
             describe = self.swi_err_describe()
         else:
             describe = np.round(self.results.describe(), 2)
-        table(ax, describe, loc='upper right', colWidths=[0.1,0.1,0.1])
+        table(ax, describe, loc='upper right', colWidths=[0.1,0.1,0.1,0.1,0.1,0.1])
         self.results.plot.box(ax=ax)
         plt.ylabel(self.plot_ylabel[self.metric_name])
         plt.grid(linestyle='--', alpha=0.5)
@@ -99,9 +99,9 @@ class OneModelAnalysis(object):
 
 if __name__ == '__main__':
 
-    model_check = ModelCheck(ResultPath='TestResult', Dataset='testData1', layers=[2,5])
+    # model_check = ModelCheck(ResultPath='TestResult', Dataset='testData1', layers=[2,5])
     # example = OneModelAnalysis(file='TestResult\\testData1-200-2layers-32.csv')
-    example = OneModelAnalysis(file='TestResult5000\\testData2-200-2layers-116.csv')
+    example = OneModelAnalysis(file='TestResult5000\\testData2-box.csv')
     example.Analyse(metric_name='SwiErr')
     example.plot_box(save=True)
     # example.swi_correlation()
