@@ -168,6 +168,7 @@ class SignalSegNet(nn.Module):
         
         # x.shape = [batch_size, 1, input_size]
         # score.shape = [batch_size, 1, input_size]
+        L = x.shape[2]
         out = self.conv1(x)
         out = self.bn1(out)
         out = self.relu(out)
@@ -209,6 +210,11 @@ class SignalSegNet(nn.Module):
 
         out = nn.functional.interpolate(input=up1, scale_factor=2, mode='linear', align_corners=True)
         out = self.unsample_conv(out)
+        if out.shape[2] - L == -2:
+            out = nn.ConstantPad1d((1,1), 0)(out)
+        elif out.shape[2] - L == 2:
+            out = out[:,:,1:-1]
+
         out = self.conv_final(out)
         out = self.bn_final(out)
         out = self.relu_final(out)
@@ -258,9 +264,9 @@ class ScoreBlock(nn.Module):
         
 
 if __name__ == "__main__":
-    net = SignalSegNet(Basicblock, [2,2,2,2,2], mode='Score')
+    net = SignalSegNet(Basicblock, [2,2,2,2], mode='U-net')
 
-    input = torch.randn([3,1,5000])
+    input = torch.randn([3,1,15000])
     s = torch.randn([3,1,5000])
     output = net(x=input, score=s)
     print("参数数量：\n", sum(p.numel() for p in net.parameters() if p.requires_grad))

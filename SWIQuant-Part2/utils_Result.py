@@ -86,7 +86,7 @@ class OneModelAnalysis(object):
         std = self.results.std().round(2)
         min = self.results.min().round(2)
         max = self.results.max().round(2)
-        count0_1 = ((self.results <= 1).sum()/N).apply(lambda x: '%.1f%%' % (x))
+        count0_1 = ((self.results <= 1).sum()/N*100).apply(lambda x: '%.1f%%' % (x))
         count1_5 = ((self.results[self.results > 1] <= 5).sum()/N*100).apply(lambda x: '%.1f%%' % (x))
         count5_10 = ((self.results[self.results > 5] <= 10).sum()/N*100).apply(lambda x: '%.1f%%' % (x))
         count10_ = ((self.results > 10).sum()/N*100).apply(lambda x: '%.1f%%' % (x))
