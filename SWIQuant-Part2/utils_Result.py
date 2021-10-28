@@ -74,7 +74,7 @@ class OneModelAnalysis(object):
         plt.grid(linestyle='--', alpha=0.5)
         plt.ylim([0,35])
         if save:
-            plt.savefig('fig\\'+os.path.split(self.file)[1][:-3]+'.png', dpi=500, bbox_inches='tight')
+            plt.savefig('fig\\'+os.path.split(self.file)[1][:-3]+'png', dpi=500, bbox_inches='tight')
             plt.close()
         else:
             plt.show()
