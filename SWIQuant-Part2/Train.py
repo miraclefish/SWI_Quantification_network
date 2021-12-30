@@ -1,7 +1,7 @@
 import os
 import torch
 
-from SignalSegNet import SignalSegNet, Basicblock
+from Re_CNN_Net import SignalSegNet, Basicblock
 from Train_dataset import Dataset_train
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
@@ -13,7 +13,8 @@ class ModelTrainer(object):
 
     def __init__(self, Net, model_root,  lr=1e-3, batch_size=256, n_epoch=300, input_size=5000):
         self.Net = Net
-        self.mode_flag = {'U-net':'U', 'Score': 'S', 'Att': 'A', 'Score+Att': 'S+A'}
+        # self.mode_flag = {'U-net':'U', 'Score': 'S', 'Att': 'A', 'Score+Att': 'S+A'}
+        self.mode_flag = {'CNN': 'C', 'Res': 'R'}
         self.model_root = model_root
         self.model_save_path = os.path.join(model_root, "M-"+str(self.Net.layers_num)+"-layers-"+self.mode_flag[self.Net.mode]+"-"+str(input_size))
         self.lr = lr
@@ -69,15 +70,12 @@ class ModelTrainer(object):
 
                 x_data = data_train['Data'].float()
                 label = data_train['label'].long()
-                score = data_train['score'].float()
                 
                 self.Net.zero_grad()
-
                 x_data = x_data.to(self.device)
                 label = label.to(self.device)
-                score = score.to(self.device)
 
-                output, Att = self.Net(x=x_data, score=score)
+                output = self.Net(x=x_data)
                 Loss = loss(output, label)
                 loss_all += Loss.cpu().data.numpy()
                 Loss.backward()
@@ -117,13 +115,11 @@ class ModelTrainer(object):
             for data in dataloader:
                 
                 x, label = data['Data'].float(), data['label'].long()
-                score = data['score'].float()
 
                 x = x.to(self.device)
                 label = label.to(self.device)
-                score = score.to(self.device)
 
-                output, Att = self.Net(x=x, score=score)
+                output = self.Net(x=x)
                 Loss =  loss(output, label)
                 loss_all += Loss.cpu().data.numpy()
                 
@@ -132,10 +128,10 @@ class ModelTrainer(object):
 
 if __name__ == '__main__':
 
-    for input_size in [500, 1000, 2500, 5000, 10000, 15000, 20000, 25000, 30000]:
-        layers = 4
-        Net = SignalSegNet(Basicblock, layers=layers, mode='U-net')
-        modeltrainer = ModelTrainer(Net, 'model', n_epoch=500, batch_size=256, input_size=input_size)
+    for input_size in [5000]:
+        layers = [2,2,2,2]
+        Net = SignalSegNet(Basicblock, layers=layers)
+        modeltrainer = ModelTrainer(Net, 'model_Re', n_epoch=500, batch_size=8, input_size=input_size)
         modeltrainer.train()
         pass
     pass
