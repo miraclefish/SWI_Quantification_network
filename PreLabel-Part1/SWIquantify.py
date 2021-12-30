@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 class SWIquantify(object):
 
-    def __init__(self, filepath, Spike_width, print_log=False):
+    def __init__(self, filepath, Spike_width, p=2, print_log=False):
 
         self.filepath = filepath
         self.dir, self.filename = os.path.split(self.filepath)
@@ -19,6 +19,7 @@ class SWIquantify(object):
         self.maskPassData = self._band_pass_filter(LowHz=0.5, HigHz=8, data=self.data)
 
         self.Spike_width = Spike_width
+        self.p = p
         self.wavelet = self._get_wave()
         self.swi_label = self._get_swi_label()
 
@@ -173,9 +174,9 @@ class SWIquantify(object):
         score = np.sum(data_windowed*wave, axis=1)/data_windowed.shape[1]**2
         return score, data_windowed, wave
 
-    def _get_wave(self, p=2):
+    def _get_wave(self):
         x = np.linspace(0.5,2,self.Spike_width)
-        wave = np.exp(-1/(x**p)-x**p)
+        wave = np.exp(-1/(x**self.p)-x**self.p)
         wave = (wave-min(wave))/(max(wave)-min(wave))
         return wave
 

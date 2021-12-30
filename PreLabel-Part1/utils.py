@@ -168,6 +168,7 @@ def match_pairs(label, pred, iou_th):
             iou_pair = iou(label_pair, pred_pair)
             if iou_pair >= iou_th:
                 tp_T = tp_T + 1
+                break
     
     tp_P = 0
     for pred_pair in pred_pairs:
@@ -181,11 +182,20 @@ def match_pairs(label, pred, iou_th):
 
 def evalu(label, pred, iou_th):
     num_T, num_P, num_TP, num_FP = match_pairs(label, pred, iou_th)
-    Sens = num_TP/(num_T+10e-6)
-    Prec = num_FP/num_P
+    Sens = num_TP/(num_T)
+    Prec = num_FP/(num_P)
     Fp_min = (num_P - num_FP)/(len(label)/1000/60)
 
     return Sens, Prec, Fp_min
+
+def evalu_new(label, pred, iou_th):
+    num_T, num_P, num_TP, num_FP = match_pairs(label, pred, iou_th)
+    TP = max(num_TP, num_FP)
+    FP = num_P - num_TP
+    FN = num_T - num_TP
+
+    return None
+    
 
 
 
