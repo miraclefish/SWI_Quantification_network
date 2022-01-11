@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 from utils import *
 from SWIquantify import SWIquantify
 
+os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
+
 def Awed_with_p(filePath, P):
     
     Score = []
@@ -66,6 +68,68 @@ def PreLA(filePath):
 
     return {'label': label, 'pred': label_pred, 'EB': ExpertB, 'EC': ExpertC}
 
+def PreLA2(filePath):
+
+    thresholds = np.concatenate([np.linspace(0.30, 1, 71), np.linspace(1.1, 3, 20)])
+    SwiQ = SWIquantify(filepath=filePath, Spike_width=76, print_log=True)
+    label = SwiQ.label[:,0]
+    ExpertB = SwiQ.label[:,1]
+    ExpertC = SwiQ.label[:,2]
+    Pred = []
+
+    for th in thresholds:
+        swi = SwiQ.get_optimal_result(th)
+        label_pred = SwiQ.mask.reshape(-1,1)
+        Pred.append(label_pred)
+
+    return {'label': label, 'pred': Pred, 'EB': ExpertB, 'EC': ExpertC}
+
+
+
+def plotPR2(result):
+
+    iou_ths = np.linspace(0, 1, 50)
+    # iou_ths = iou_ths[::-1]
+    Sens = np.zeros(len(result['pred']))
+    Prec = np.zeros(len(result['pred']))
+    SensB = np.zeros(len(result['pred']))
+    SensC = np.zeros(len(result['pred']))
+    PrecB = np.zeros(len(result['pred']))
+    PrecC = np.zeros(len(result['pred']))
+    Fp_min = np.zeros(len(result['pred']))
+    Fp_minB = np.zeros(len(result['pred']))
+    Fp_minC = np.zeros(len(result['pred']))
+    
+    cach = []
+    for i, pred in enumerate(result['pred']):
+
+        sens, prec, fp_min, num_P = evalu(result['label'], pred, 0.3)
+        cach.append(num_P)
+
+    max_num_P = max(cach)
+    for i, pred in enumerate(result['pred']):
+
+        sens, prec, fp_min = evalu_re(result['label'], pred, 0.3, max_num_P)
+        # sensB, precB, fp_minB = evalu(result['label'], result['EB'], iou_th)
+        # sensC, precC, fp_minC = evalu(result['label'], result['EC'], iou_th)
+        Sens[i] = sens
+        Prec[i] = prec
+        # SensB[i] = sensB
+        # PrecB[i] = precB
+        # SensC[i] = sensC
+        # PrecC[i] = precC
+        # Fp_min[i] = fp_min
+        # Fp_minB[i] = fp_minB
+        # Fp_minC[i] = fp_minC
+    plt.plot(Sens, Prec, color='black')
+    # plt.plot(Fp_minB, SensB, color='blue')
+    # plt.plot(Fp_minC, SensC, color='red')
+    # plt.axis([0,1,0,1])
+    plt.xlabel('Sensitivity')
+    plt.ylabel('FPR')
+    plt.show()
+    return None
+
 def plotPR(result):
 
     iou_ths = np.linspace(0, 1, 50)
@@ -76,6 +140,9 @@ def plotPR(result):
     SensC = np.zeros(len(iou_ths))
     PrecB = np.zeros(len(iou_ths))
     PrecC = np.zeros(len(iou_ths))
+    Fp_min = np.zeros(len(iou_ths))
+    Fp_minB = np.zeros(len(iou_ths))
+    Fp_minC = np.zeros(len(iou_ths))
     
 
     for i, iou_th in enumerate(iou_ths):
@@ -89,13 +156,15 @@ def plotPR(result):
         PrecB[i] = precB
         SensC[i] = sensC
         PrecC[i] = precC
-
-    plt.plot(Sens, Prec, color='black')
-    plt.plot(SensB, PrecB, color='blue')
-    plt.plot(SensC, PrecC, color='red')
+        Fp_min[i] = fp_min
+        Fp_minB[i] = fp_minB
+        Fp_minC[i] = fp_minC
+    plt.plot(Fp_min, Sens, color='black')
+    plt.plot(Fp_minB, SensB, color='blue')
+    plt.plot(Fp_minC, SensC, color='red')
     # plt.axis([0,1,0,1])
     plt.xlabel('Sensitivity')
-    plt.ylabel('Precision')
+    plt.ylabel('FPR')
     plt.show()
     return None
 
@@ -109,8 +178,8 @@ if __name__ == '__main__':
     filelist = os.listdir(Path)
     i = 2
     filePath = os.path.join(Path, filelist[i])
-    result = PreLA(filePath)
-    plotPR(result)
+    result = PreLA2(filePath)
+    plotPR2(result)
 
 
 

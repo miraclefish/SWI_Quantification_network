@@ -182,10 +182,10 @@ def match_pairs(label, pred, iou_th):
 
 def evalu(label, pred, iou_th):
     num_T, num_P, num_TP, num_FP = match_pairs(label, pred, iou_th)
-    Sens = num_TP/(num_T)
-    Prec = num_FP/(num_P)
+    Sens = num_TP/(num_T+10e-6)
+    Prec = num_FP/(num_P+10e-6)
     Fp_min = (num_P - num_FP)/(len(label)/1000/60)
-
+    
     return Sens, Prec, Fp_min
 
 def evalu_new(label, pred, iou_th):

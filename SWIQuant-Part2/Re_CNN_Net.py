@@ -267,7 +267,7 @@ class ScoreBlock(nn.Module):
         
 
 if __name__ == "__main__":
-    net = SignalSegNet(Basicblock, [2,2,2,2], mode='CNN')
+    net = SignalSegNet(Basicblock, [2,2,2,2], mode='Res')
 
     input = torch.randn([3,1,5000])
     output = net(x=input)

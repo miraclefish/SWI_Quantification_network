@@ -98,7 +98,7 @@ class ModelTrainer(object):
                 }
 
             if epoch % 2 == 0:
-                torch.save(checkpoint,'{0}/model_epoch_{1}.pth.tar'.format(self.model_save_path, epoch))
+                torch.save(checkpoint,'{0}/model_epoch_{1}.pth.tar'.format(self.model_save_path, epoch), _use_new_zipfile_serialization=False)
                 print("Save {0} epoch model in Path [{1}/model_epoch_{2}.pth.tar]".format(epoch, self.model_save_path, epoch))
                 
                 writer.add_scalars('Loss', {'train_loss': train_loss, 'test_loss':test_loss}, epoch)
